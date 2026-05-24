@@ -66,14 +66,32 @@ jobs:
             echo "should_build=true"  >> "$GITHUB_OUTPUT"
           fi
 
-      # ─── Step 4: 检出上游源代码 ───
+      # ─── Step 4: 检出上游源代码（指定版本 tag） ───
       - name: Checkout upstream source
         if: steps.check.outputs.should_build == 'true'
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: QuantumNous/new-api
+          ref: ${{ steps.upstream.outputs.tag }}
           path: upstream
           fetch-depth: 0
+
+      # 校验：确认检出的 commit 与目标 tag 一致
+      - name: Verify checked-out version
+        if: steps.check.outputs.should_build == 'true'
+        run: |
+          cd upstream
+          EXPECTED_TAG="${{ steps.upstream.outputs.tag }}"
+          ACTUAL_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "detached")
+          ACTUAL_SHA=$(git rev-parse --short HEAD)
+          echo "→ Expected tag : $EXPECTED_TAG"
+          echo "→ Actual tag   : $ACTUAL_TAG"
+          echo "→ Commit SHA   : $ACTUAL_SHA"
+          if [ "$ACTUAL_TAG" != "$EXPECTED_TAG" ]; then
+            echo "::warning::Tag mismatch! Expected $EXPECTED_TAG but checked out $ACTUAL_TAG ($ACTUAL_SHA)"
+          else
+            echo "✅ Tag matches — building from $ACTUAL_TAG ($ACTUAL_SHA)"
+          fi
 
       # ─── Step 5: 安装 Bun ───
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -107,6 +125,7 @@ jobs:
           CI: ''
           VERSION: ${{ steps.upstream.outputs.tag }}
         run: |
+          echo "→ Building version: $VERSION"
           cd upstream/web/default
           bun install
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
