@@ -150,20 +150,19 @@ jobs:
           echo "::group::Configure git"
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # 全局注入 GITHUB_TOKEN，所有 git 操作自动携带认证
-          git config --global "http.https://github.com/.extraheader" "AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}"
           echo "::endgroup::"
 
           echo "::group::Prepare deploy worktree"
-          BASE_URL="https://github.com/${{ github.repository }}.git"
+          # GITHUB_TOKEN 嵌 URL — GitHub Actions 自动 mask，set -e 无 verbose 不会泄露
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           DEPLOY_DIR="$(mktemp -d)"
 
-          if git ls-remote --heads "$BASE_URL" "$TARGET_BRANCH" | grep -q .; then
+          if git ls-remote --heads "$REPO_URL" "$TARGET_BRANCH" | grep -q .; then
             echo "→ Branch '$TARGET_BRANCH' exists — cloning with existing history"
-            git clone --depth 1 --branch "$TARGET_BRANCH" "$BASE_URL" "$DEPLOY_DIR"
+            git clone --depth 1 --branch "$TARGET_BRANCH" "$REPO_URL" "$DEPLOY_DIR"
           else
             echo "→ Branch '$TARGET_BRANCH' does not exist — creating orphan"
-            git clone --depth 1 "$BASE_URL" "$DEPLOY_DIR"
+            git clone --depth 1 "$REPO_URL" "$DEPLOY_DIR"
             git -C "$DEPLOY_DIR" checkout --orphan "$TARGET_BRANCH"
             git -C "$DEPLOY_DIR" rm -rf . 2>/dev/null || true
           fi
