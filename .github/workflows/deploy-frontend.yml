@@ -81,7 +81,26 @@ jobs:
         with:
           bun-version: latest
 
-      # ─── Step 6: 编译 web/default ───
+      # ─── Step 6: 缓存 ───
+      # 缓存 Bun 全局包仓库（避免重复下载 tarball）
+      - name: Cache Bun global store
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-cache-${{ runner.os }}-${{ hashFiles('upstream/web/default/bun.lock') }}
+          restore-keys: bun-cache-${{ runner.os }}-
+
+      # 缓存 node_modules（避免重复 bun install）
+      - name: Cache node_modules
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+        with:
+          path: upstream/web/default/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('upstream/web/default/bun.lock') }}
+          restore-keys: node-modules-${{ runner.os }}-
+
+      # ─── Step 7: 编译 web/default ───
       - name: Build frontend (web/default)
         if: steps.check.outputs.should_build == 'true'
         env:
@@ -93,7 +112,7 @@ jobs:
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
           cd "$GITHUB_WORKSPACE"
 
-      # ─── Step 7: 增量部署到 dist 分支 ───
+      # ─── Step 8: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
       # Rsbuild 的内容哈希文件名（index-SxSn0p90.js）自然实现"多版本 hash 产物并存"；
       # 同名文件（index.html 等）覆盖更新。rsync 不加 --delete，旧哈希文件保留。
