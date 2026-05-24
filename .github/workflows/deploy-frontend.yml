@@ -27,7 +27,7 @@ jobs:
           if [ -n "${{ github.event.inputs.upstream_tag }}" ]; then
             TAG="${{ github.event.inputs.upstream_tag }}"
           else
-            TAG=$(curl -sS https://api.github.com/repos/QuantumNous/new-api/releases/latest | jq -r .tag_name)
+            TAG=$(curl -sS https://api.github.com/repos/QuantumNous/new-api/releases?per_page=50 | jq -r '[.[] | select(.prerelease == false)] | .[0].tag_name')
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "→ Upstream latest: $TAG"
