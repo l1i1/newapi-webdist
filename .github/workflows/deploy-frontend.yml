@@ -150,20 +150,20 @@ jobs:
           echo "::group::Configure git"
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # 全局注入 GITHUB_TOKEN，所有 git 操作自动携带认证
+          git config --global "http.https://github.com/.extraheader" "AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}"
           echo "::endgroup::"
 
           echo "::group::Prepare deploy worktree"
           BASE_URL="https://github.com/${{ github.repository }}.git"
-          AUTH_HEADER="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}"
-          GIT_AUTH=(-c "http.$BASE_URL.extraheader=$AUTH_HEADER")
           DEPLOY_DIR="$(mktemp -d)"
 
           if git ls-remote --heads "$BASE_URL" "$TARGET_BRANCH" | grep -q .; then
             echo "→ Branch '$TARGET_BRANCH' exists — cloning with existing history"
-            git "${GIT_AUTH[@]}" clone --depth 1 --branch "$TARGET_BRANCH" "$BASE_URL" "$DEPLOY_DIR"
+            git clone --depth 1 --branch "$TARGET_BRANCH" "$BASE_URL" "$DEPLOY_DIR"
           else
             echo "→ Branch '$TARGET_BRANCH' does not exist — creating orphan"
-            git "${GIT_AUTH[@]}" clone --depth 1 "$BASE_URL" "$DEPLOY_DIR"
+            git clone --depth 1 "$BASE_URL" "$DEPLOY_DIR"
             git -C "$DEPLOY_DIR" checkout --orphan "$TARGET_BRANCH"
             git -C "$DEPLOY_DIR" rm -rf . 2>/dev/null || true
           fi
@@ -185,7 +185,7 @@ jobs:
             echo "No changes — deploy branch already up to date"
           else
             git commit -m "deploy: $VERSION [skip ci]"
-            git "${GIT_AUTH[@]}" push origin "$TARGET_BRANCH"
+            git push origin "$TARGET_BRANCH"
             echo "✅ Deployed $VERSION → ${{ github.repository }}@$TARGET_BRANCH"
           fi
           echo "::endgroup::"
