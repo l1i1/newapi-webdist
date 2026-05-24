@@ -37,12 +37,12 @@ jobs:
         id: deployed
         run: |
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${{ secrets.WEB_DIST_DEPLOY_TOKEN }}" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist")
 
           if [ "$HTTP_CODE" = "200" ]; then
             DEPLOYED=$(curl -sS \
-              -H "Authorization: Bearer ${{ secrets.WEB_DIST_DEPLOY_TOKEN }}" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist" \
               | jq -r '.content' | base64 -d | tr -d '\n')
           else
@@ -111,7 +111,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Prepare deploy worktree"
-          REPO_URL="https://x-access-token:${{ secrets.WEB_DIST_DEPLOY_TOKEN }}@github.com/${{ github.repository }}.git"
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           DEPLOY_DIR="$(mktemp -d)"
 
           if git ls-remote --heads "$REPO_URL" "$TARGET_BRANCH" | grep -q .; then
