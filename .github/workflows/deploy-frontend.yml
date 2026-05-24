@@ -1,9 +1,9 @@
 name: Sync Upstream Frontend Release
 
 on:
-  # ── 自动：每 15 分钟检查上游是否有新 Release ──
+  # ── 自动：每小时检查上游是否有新 Release ──
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '0 * * * *'
   # ── 手动：可指定上游版本号 ──
   workflow_dispatch:
     inputs:
@@ -14,6 +14,11 @@ on:
 
 permissions:
   contents: write
+
+# 防止多个 run 同时部署导致冲突
+concurrency:
+  group: deploy-dist
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -36,15 +41,13 @@ jobs:
       - name: Read deployed version from dist branch
         id: deployed
         run: |
-          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+          RESP=$(curl -sS -w "\n%{http_code}" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist")
+          HTTP_CODE=$(echo "$RESP" | tail -1)
 
           if [ "$HTTP_CODE" = "200" ]; then
-            DEPLOYED=$(curl -sS \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist" \
-              | jq -r '.content' | base64 -d | tr -d '\n')
+            DEPLOYED=$(echo "$RESP" | sed '$d' | jq -r '.content' | base64 -d | tr -d '\n')
           else
             DEPLOYED=""
           fi
@@ -100,6 +103,7 @@ jobs:
           bun-version: latest
 
       # ─── Step 6: 缓存 ───
+      # ⚠️ hashFiles 依赖 Step 4 checkout 已完成（由 should_build if 保证）
       # 缓存 Bun 全局包仓库（避免重复下载 tarball）
       - name: Cache Bun global store
         if: steps.check.outputs.should_build == 'true'
@@ -127,7 +131,7 @@ jobs:
         run: |
           echo "→ Building version: $VERSION"
           cd upstream/web/default
-          bun install
+          bun install --frozen-lockfile
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
           cd "$GITHUB_WORKSPACE"
 
@@ -149,15 +153,17 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Prepare deploy worktree"
-          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          BASE_URL="https://github.com/${{ github.repository }}.git"
+          AUTH_HEADER="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}"
+          GIT_AUTH=(-c "http.$BASE_URL.extraheader=$AUTH_HEADER")
           DEPLOY_DIR="$(mktemp -d)"
 
-          if git ls-remote --heads "$REPO_URL" "$TARGET_BRANCH" | grep -q .; then
+          if git ls-remote --heads "$BASE_URL" "$TARGET_BRANCH" | grep -q .; then
             echo "→ Branch '$TARGET_BRANCH' exists — cloning with existing history"
-            git clone --depth 1 --branch "$TARGET_BRANCH" "$REPO_URL" "$DEPLOY_DIR"
+            git "${GIT_AUTH[@]}" clone --depth 1 --branch "$TARGET_BRANCH" "$BASE_URL" "$DEPLOY_DIR"
           else
             echo "→ Branch '$TARGET_BRANCH' does not exist — creating orphan"
-            git clone --depth 1 "$REPO_URL" "$DEPLOY_DIR"
+            git "${GIT_AUTH[@]}" clone --depth 1 "$BASE_URL" "$DEPLOY_DIR"
             git -C "$DEPLOY_DIR" checkout --orphan "$TARGET_BRANCH"
             git -C "$DEPLOY_DIR" rm -rf . 2>/dev/null || true
           fi
@@ -179,7 +185,7 @@ jobs:
             echo "No changes — deploy branch already up to date"
           else
             git commit -m "deploy: $VERSION [skip ci]"
-            git push origin "$TARGET_BRANCH"
+            git "${GIT_AUTH[@]}" push origin "$TARGET_BRANCH"
             echo "✅ Deployed $VERSION → ${{ github.repository }}@$TARGET_BRANCH"
           fi
           echo "::endgroup::"
