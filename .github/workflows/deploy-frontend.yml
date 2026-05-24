@@ -1,0 +1,147 @@
+name: Sync Upstream Frontend Release
+
+on:
+  # ── 自动：每 15 分钟检查上游是否有新 Release ──
+  schedule:
+    - cron: '*/15 * * * *'
+  # ── 手动：可指定上游版本号 ──
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: '上游 QuantumNous/new-api 的版本号（留空则自动取最新 Release）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync → dist
+    runs-on: ubuntu-latest
+    steps:
+      # ─── Step 1: 获取上游最新 Release 版本号 ───
+      - name: Fetch latest upstream release tag
+        id: upstream
+        run: |
+          if [ -n "${{ github.event.inputs.upstream_tag }}" ]; then
+            TAG="${{ github.event.inputs.upstream_tag }}"
+          else
+            TAG=$(curl -sS https://api.github.com/repos/QuantumNous/new-api/releases/latest | jq -r .tag_name)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "→ Upstream latest: $TAG"
+
+      # ─── Step 2: 读取 dist 分支中已部署的版本号 ───
+      - name: Read deployed version from dist branch
+        id: deployed
+        run: |
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.WEB_DIST_DEPLOY_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            DEPLOYED=$(curl -sS \
+              -H "Authorization: Bearer ${{ secrets.WEB_DIST_DEPLOY_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist" \
+              | jq -r '.content' | base64 -d | tr -d '\n')
+          else
+            DEPLOYED=""
+          fi
+          echo "deployed=$DEPLOYED" >> "$GITHUB_OUTPUT"
+          echo "→ Currently deployed: ${DEPLOYED:-none}"
+
+      # ─── Step 3: 判断是否需要编译部署 ───
+      - name: Decide whether to build
+        id: check
+        run: |
+          UPSTREAM="${{ steps.upstream.outputs.tag }}"
+          DEPLOYED="${{ steps.deployed.outputs.deployed }}"
+
+          if [ "$UPSTREAM" = "$DEPLOYED" ]; then
+            echo "→ Already up to date — skipping"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "→ New release: $UPSTREAM (was $DEPLOYED)"
+            echo "should_build=true"  >> "$GITHUB_OUTPUT"
+          fi
+
+      # ─── Step 4: 检出上游源代码 ───
+      - name: Checkout upstream source
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: QuantumNous/new-api
+          path: upstream
+          fetch-depth: 0
+
+      # ─── Step 5: 安装 Bun ───
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        if: steps.check.outputs.should_build == 'true'
+        with:
+          bun-version: latest
+
+      # ─── Step 6: 编译 web/default ───
+      - name: Build frontend (web/default)
+        if: steps.check.outputs.should_build == 'true'
+        env:
+          CI: ''
+          VERSION: ${{ steps.upstream.outputs.tag }}
+        run: |
+          cd upstream/web/default
+          bun install
+          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
+          cd "$GITHUB_WORKSPACE"
+
+      # ─── Step 7: 增量部署到 dist 分支 ───
+      # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
+      # Rsbuild 的内容哈希文件名（index-SxSn0p90.js）自然实现"多版本 hash 产物并存"；
+      # 同名文件（index.html 等）覆盖更新。rsync 不加 --delete，旧哈希文件保留。
+      - name: Deploy to dist branch
+        if: steps.check.outputs.should_build == 'true'
+        env:
+          TARGET_BRANCH: dist
+          VERSION: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -e
+
+          echo "::group::Configure git"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "::endgroup::"
+
+          echo "::group::Prepare deploy worktree"
+          REPO_URL="https://x-access-token:${{ secrets.WEB_DIST_DEPLOY_TOKEN }}@github.com/${{ github.repository }}.git"
+          DEPLOY_DIR="$(mktemp -d)"
+
+          if git ls-remote --heads "$REPO_URL" "$TARGET_BRANCH" | grep -q .; then
+            echo "→ Branch '$TARGET_BRANCH' exists — cloning with existing history"
+            git clone --depth 1 --branch "$TARGET_BRANCH" "$REPO_URL" "$DEPLOY_DIR"
+          else
+            echo "→ Branch '$TARGET_BRANCH' does not exist — creating orphan"
+            git clone --depth 1 "$REPO_URL" "$DEPLOY_DIR"
+            git -C "$DEPLOY_DIR" checkout --orphan "$TARGET_BRANCH"
+            git -C "$DEPLOY_DIR" rm -rf . 2>/dev/null || true
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Copy build output"
+          # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
+          rsync -a upstream/web/default/dist/ "$DEPLOY_DIR/"
+          # 写入版本标记文件（用于下次 diff 比较）
+          echo "$VERSION" > "$DEPLOY_DIR/.deployed-version"
+          echo "::endgroup::"
+
+          echo "::group::Commit & push"
+          cd "$DEPLOY_DIR"
+
+          git add -A
+
+          if git diff --staged --quiet; then
+            echo "No changes — deploy branch already up to date"
+          else
+            git commit -m "deploy: $VERSION [skip ci]"
+            git push origin "$TARGET_BRANCH"
+            echo "✅ Deployed $VERSION → ${{ github.repository }}@$TARGET_BRANCH"
+          fi
+          echo "::endgroup::"
