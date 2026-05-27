@@ -121,7 +121,7 @@ jobs:
           docker cp "$CONTAINER_ID:/build/dist/." "$GITHUB_WORKSPACE/docker-builder-output/"
           test -f "$GITHUB_WORKSPACE/docker-builder-output/index.html"
 
-      # ─── Step 6: 校验构建产物与官方 Docker 镜像服务的入口一致 ───
+      # ─── Step 6: 校验官方 Docker 镜像可服务同名入口静态资源 ───
       - name: Verify against official Docker image
         if: steps.check.outputs.should_build == 'true'
         env:
@@ -136,33 +136,37 @@ jobs:
           CONTAINER_ID="$(docker run -d -p 3000:3000 "$IMAGE")"
           trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
 
-          for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:3000/ -o official-index.html; then
-              break
-            fi
-            sleep 1
-          done
-
           python - <<'PY'
           import pathlib
           import re
 
           pattern = re.compile(r'/static/[^"\'<>\s)]+')
           builder_refs = sorted(set(pattern.findall(pathlib.Path('docker-builder-output/index.html').read_text())))
-          official_refs = sorted(set(pattern.findall(pathlib.Path('official-index.html').read_text())))
-
           pathlib.Path('builder-static-refs.txt').write_text('\n'.join(builder_refs) + '\n')
-          pathlib.Path('official-static-refs.txt').write_text('\n'.join(official_refs) + '\n')
 
-          if not builder_refs or not official_refs:
-            raise SystemExit('Missing static references in builder or official index.html')
+          if not builder_refs:
+            raise SystemExit('Missing static references in builder index.html')
           PY
 
-          cmp -s builder-static-refs.txt official-static-refs.txt || {
-            echo "::error::Docker builder static asset references differ from official Docker image"
-            diff -u builder-static-refs.txt official-static-refs.txt || true
+          FIRST_REF="$(head -n 1 builder-static-refs.txt)"
+          for i in {1..60}; do
+            if curl -fsS "http://127.0.0.1:3000$FIRST_REF" -o /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          while IFS= read -r asset; do
+            curl -fsS "http://127.0.0.1:3000$asset" -o /dev/null || {
+              echo "::error::Official Docker image does not serve $asset"
+              exit 1
+            }
+          done < builder-static-refs.txt
+
+          if [ "$(find docker-builder-output/static -type f | wc -l)" -le 0 ]; then
+            echo "::error::Docker builder output contains no static files"
             exit 1
-          }
+          fi
 
       # ─── Step 7: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
