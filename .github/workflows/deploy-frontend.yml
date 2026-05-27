@@ -164,18 +164,39 @@ jobs:
             exit 1
           fi
 
-          for i in {1..60}; do
-            if curl -fsS "http://127.0.0.1:3000$FIRST_REF" -o /dev/null; then
-              break
-            fi
-            sleep 1
-          done
+          fetch_asset() {
+            local asset="$1"
+            local url="http://127.0.0.1:3000$asset"
+            local code
+            local attempt
+            local delay
+
+            for attempt in {1..8}; do
+              code="$(curl -sS -o /dev/null -w '%{http_code}' \
+                --connect-timeout 5 \
+                --max-time 30 \
+                "$url" || true)"
+
+              if [ "$code" = "200" ]; then
+                return 0
+              fi
+
+              if [ "$attempt" -eq 8 ]; then
+                echo "::error::Official Docker image does not serve $asset after $attempt attempts (last HTTP status: ${code:-curl-failed})"
+                return 1
+              fi
+
+              delay=$((attempt * 2))
+              echo "→ Transient HTTP status ${code:-curl-failed} for $asset (attempt $attempt/8); retrying in ${delay}s"
+              sleep "$delay"
+            done
+          }
+
+          fetch_asset "$FIRST_REF"
 
           while IFS= read -r asset; do
-            curl -fsS "http://127.0.0.1:3000$asset" -o /dev/null || {
-              echo "::error::Official Docker image does not serve $asset"
-              exit 1
-            }
+            fetch_asset "$asset"
+            sleep 0.2
           done < builder-static-refs.txt
 
       # ─── Step 8: 增量部署到 dist 分支 ───
