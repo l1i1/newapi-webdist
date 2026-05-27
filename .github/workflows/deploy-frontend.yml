@@ -116,8 +116,9 @@ jobs:
           docker build --target builder -t new-api-frontend-builder -f upstream/Dockerfile upstream
           CONTAINER_ID="$(docker create --entrypoint sh new-api-frontend-builder -c true)"
           trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
-          docker cp "$CONTAINER_ID:/build/dist" "$GITHUB_WORKSPACE/docker-builder-output"
-          test -f "$GITHUB_WORKSPACE/docker-builder-output/dist/index.html"
+          mkdir -p "$GITHUB_WORKSPACE/docker-builder-output"
+          docker cp "$CONTAINER_ID:/build/dist/." "$GITHUB_WORKSPACE/docker-builder-output/"
+          test -f "$GITHUB_WORKSPACE/docker-builder-output/index.html"
 
       # ─── Step 6: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
@@ -154,7 +155,7 @@ jobs:
 
           echo "::group::Copy build output"
           # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
-          rsync -a docker-builder-output/dist/ "$DEPLOY_DIR/"
+          rsync -a docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
           echo "$VERSION+docker-builder" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
