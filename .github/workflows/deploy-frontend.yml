@@ -28,12 +28,20 @@ jobs:
       # ─── Step 1: 获取上游最新 Release 版本号 ───
       - name: Fetch latest upstream release tag
         id: upstream
+        env:
+          INPUT_UPSTREAM_TAG: ${{ github.event.inputs.upstream_tag }}
         run: |
-          if [ -n "${{ github.event.inputs.upstream_tag }}" ]; then
-            TAG="${{ github.event.inputs.upstream_tag }}"
+          if [ -n "$INPUT_UPSTREAM_TAG" ]; then
+            TAG="$INPUT_UPSTREAM_TAG"
           else
-            TAG=$(curl -sS https://api.github.com/repos/QuantumNous/new-api/releases?per_page=50 | jq -r '[.[] | select(.prerelease == false)] | .[0].tag_name')
+            TAG=$(curl -fsSL https://api.github.com/repos/QuantumNous/new-api/releases/latest | jq -er '.tag_name')
           fi
+
+          if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+            echo "::error::Failed to resolve latest upstream release tag"
+            exit 1
+          fi
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "→ Upstream latest: $TAG"
 
