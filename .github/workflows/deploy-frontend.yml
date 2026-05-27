@@ -30,11 +30,18 @@ jobs:
         id: upstream
         env:
           INPUT_UPSTREAM_TAG: ${{ github.event.inputs.upstream_tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "$INPUT_UPSTREAM_TAG" ]; then
-            TAG="$INPUT_UPSTREAM_TAG"
+            TAG="$(printf '%s' "$INPUT_UPSTREAM_TAG" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            MANUAL_TAG=true
           else
-            TAG=$(curl -fsSL https://api.github.com/repos/QuantumNous/new-api/releases/latest | jq -er '.tag_name')
+            TAG=$(curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/QuantumNous/new-api/releases/latest | jq -er '.tag_name')
+            MANUAL_TAG=false
           fi
 
           if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
@@ -42,34 +49,52 @@ jobs:
             exit 1
           fi
 
+          if ! [[ "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Invalid upstream tag for Docker image tag: $TAG"
+            exit 1
+          fi
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "manual_tag=$MANUAL_TAG" >> "$GITHUB_OUTPUT"
           echo "→ Upstream latest: $TAG"
 
       # ─── Step 2: 确认官方 Docker 镜像 tag 已发布 ───
       - name: Check official Docker image tag
         id: docker_image
+        env:
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          MANUAL_TAG: ${{ steps.upstream.outputs.manual_tag }}
         run: |
-          IMAGE="calciumion/new-api:${{ steps.upstream.outputs.tag }}"
+          IMAGE="calciumion/new-api:$UPSTREAM_TAG"
 
           if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
             echo "available=true" >> "$GITHUB_OUTPUT"
             echo "→ Official Docker image is available: $IMAGE"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Official Docker image is not available yet: $IMAGE"
+            if [ "$MANUAL_TAG" = "true" ]; then
+              echo "::error::Official Docker image is not available for requested tag: $IMAGE"
+              exit 1
+            else
+              echo "::warning::Official Docker image is not available yet: $IMAGE"
+            fi
           fi
 
       # ─── Step 3: 读取 dist 分支中已部署的版本号 ───
       - name: Read deployed version from dist branch
         id: deployed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RESP=$(curl -sS -w "\n%{http_code}" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          RESP=$(curl -sS --retry 5 --retry-delay 2 --retry-all-errors -w "\n%{http_code}" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${{ github.repository }}/contents/.deployed-version?ref=dist")
           HTTP_CODE=$(echo "$RESP" | tail -1)
 
           if [ "$HTTP_CODE" = "200" ]; then
-            DEPLOYED=$(echo "$RESP" | sed '$d' | jq -r '.content' | base64 -d | tr -d '\n')
+            DEPLOYED=$(echo "$RESP" | sed '$d' | jq -r '.content' | base64 -d | tr -d '\r\n')
           else
             DEPLOYED=""
           fi
@@ -79,20 +104,21 @@ jobs:
       # ─── Step 4: 判断是否需要编译部署 ───
       - name: Decide whether to build
         id: check
+        env:
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          DEPLOYED_VERSION: ${{ steps.deployed.outputs.deployed }}
+          IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
         run: |
-          UPSTREAM="${{ steps.upstream.outputs.tag }}"
-          DEPLOYED="${{ steps.deployed.outputs.deployed }}"
-          TARGET="${UPSTREAM}+docker-builder-verified-all"
-          IMAGE_AVAILABLE="${{ steps.docker_image.outputs.available }}"
+          TARGET="${UPSTREAM_TAG}+docker-builder-verified-all"
 
           if [ "$IMAGE_AVAILABLE" != "true" ]; then
-            echo "→ Official Docker image for $UPSTREAM is not available yet — skipping until next run"
+            echo "→ Official Docker image for $UPSTREAM_TAG is not available yet — skipping until next run"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
-          elif [ "$TARGET" = "$DEPLOYED" ]; then
+          elif [ "$TARGET" = "$DEPLOYED_VERSION" ]; then
             echo "→ Already up to date — skipping"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
-            echo "→ New Docker builder release: $TARGET (was ${DEPLOYED:-none})"
+            echo "→ New Docker builder release: $TARGET (was ${DEPLOYED_VERSION:-none})"
             echo "should_build=true"  >> "$GITHUB_OUTPUT"
           fi
 
@@ -109,9 +135,10 @@ jobs:
       # 校验：确认检出的 commit 与目标 tag 一致
       - name: Verify checked-out version
         if: steps.check.outputs.should_build == 'true'
+        env:
+          EXPECTED_TAG: ${{ steps.upstream.outputs.tag }}
         run: |
           cd upstream
-          EXPECTED_TAG="${{ steps.upstream.outputs.tag }}"
           ACTUAL_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "detached")
           ACTUAL_SHA=$(git rev-parse --short HEAD)
           echo "→ Expected tag : $EXPECTED_TAG"
