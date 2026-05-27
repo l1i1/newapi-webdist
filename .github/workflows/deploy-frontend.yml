@@ -45,7 +45,21 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "→ Upstream latest: $TAG"
 
-      # ─── Step 2: 读取 dist 分支中已部署的版本号 ───
+      # ─── Step 2: 确认官方 Docker 镜像 tag 已发布 ───
+      - name: Check official Docker image tag
+        id: docker_image
+        run: |
+          IMAGE="calciumion/new-api:${{ steps.upstream.outputs.tag }}"
+
+          if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "→ Official Docker image is available: $IMAGE"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Official Docker image is not available yet: $IMAGE"
+          fi
+
+      # ─── Step 3: 读取 dist 分支中已部署的版本号 ───
       - name: Read deployed version from dist branch
         id: deployed
         run: |
@@ -62,15 +76,19 @@ jobs:
           echo "deployed=$DEPLOYED" >> "$GITHUB_OUTPUT"
           echo "→ Currently deployed: ${DEPLOYED:-none}"
 
-      # ─── Step 3: 判断是否需要编译部署 ───
+      # ─── Step 4: 判断是否需要编译部署 ───
       - name: Decide whether to build
         id: check
         run: |
           UPSTREAM="${{ steps.upstream.outputs.tag }}"
           DEPLOYED="${{ steps.deployed.outputs.deployed }}"
-          TARGET="${UPSTREAM}+docker-builder-verified"
+          TARGET="${UPSTREAM}+docker-builder-verified-all"
+          IMAGE_AVAILABLE="${{ steps.docker_image.outputs.available }}"
 
-          if [ "$TARGET" = "$DEPLOYED" ]; then
+          if [ "$IMAGE_AVAILABLE" != "true" ]; then
+            echo "→ Official Docker image for $UPSTREAM is not available yet — skipping until next run"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$TARGET" = "$DEPLOYED" ]; then
             echo "→ Already up to date — skipping"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
@@ -78,7 +96,7 @@ jobs:
             echo "should_build=true"  >> "$GITHUB_OUTPUT"
           fi
 
-      # ─── Step 4: 检出上游源代码（指定版本 tag） ───
+      # ─── Step 5: 检出上游源代码（指定版本 tag） ───
       - name: Checkout upstream source
         if: steps.check.outputs.should_build == 'true'
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -106,7 +124,7 @@ jobs:
             echo "✅ Tag matches — building from $ACTUAL_TAG ($ACTUAL_SHA)"
           fi
 
-      # ─── Step 5: 使用官方 Dockerfile 的 builder 阶段构建 web/default ───
+      # ─── Step 6: 使用官方 Dockerfile 的 builder 阶段构建 web/default ───
       - name: Build frontend with upstream Docker builder
         if: steps.check.outputs.should_build == 'true'
         env:
@@ -121,7 +139,7 @@ jobs:
           docker cp "$CONTAINER_ID:/build/dist/." "$GITHUB_WORKSPACE/docker-builder-output/"
           test -f "$GITHUB_WORKSPACE/docker-builder-output/index.html"
 
-      # ─── Step 6: 校验官方 Docker 镜像可服务同名入口静态资源 ───
+      # ─── Step 7: 校验官方 Docker 镜像可服务同名静态资源 ───
       - name: Verify against official Docker image
         if: steps.check.outputs.should_build == 'true'
         env:
@@ -136,19 +154,16 @@ jobs:
           CONTAINER_ID="$(docker run -d -p 3000:3000 "$IMAGE")"
           trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
 
-          python - <<'PY'
-          import pathlib
-          import re
-
-          pattern = re.compile(r'/static/[^"\'<>\s)]+')
-          builder_refs = sorted(set(pattern.findall(pathlib.Path('docker-builder-output/index.html').read_text())))
-          pathlib.Path('builder-static-refs.txt').write_text('\n'.join(builder_refs) + '\n')
-
-          if not builder_refs:
-            raise SystemExit('Missing static references in builder index.html')
-          PY
+          find docker-builder-output/static -type f \
+            | sed 's#^docker-builder-output##' \
+            | sort > builder-static-refs.txt
 
           FIRST_REF="$(head -n 1 builder-static-refs.txt)"
+          if [ -z "$FIRST_REF" ]; then
+            echo "::error::Docker builder output contains no static files"
+            exit 1
+          fi
+
           for i in {1..60}; do
             if curl -fsS "http://127.0.0.1:3000$FIRST_REF" -o /dev/null; then
               break
@@ -163,12 +178,7 @@ jobs:
             }
           done < builder-static-refs.txt
 
-          if [ "$(find docker-builder-output/static -type f | wc -l)" -le 0 ]; then
-            echo "::error::Docker builder output contains no static files"
-            exit 1
-          fi
-
-      # ─── Step 7: 增量部署到 dist 分支 ───
+      # ─── Step 8: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
       # Rsbuild 的内容哈希文件名（index-SxSn0p90.js）自然实现"多版本 hash 产物并存"；
       # 同名文件（index.html 等）覆盖更新。rsync 不加 --delete，旧哈希文件保留。
@@ -205,7 +215,7 @@ jobs:
           # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
           rsync -a docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
-          echo "$VERSION+docker-builder-verified" > "$DEPLOY_DIR/.deployed-version"
+          echo "$VERSION+docker-builder-verified-all" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
 
           echo "::group::Commit & push"
