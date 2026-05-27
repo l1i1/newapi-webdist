@@ -172,10 +172,17 @@ jobs:
             local delay
 
             for attempt in {1..8}; do
-              code="$(curl -sS -o /dev/null -w '%{http_code}' \
+              code="$(curl -sS --head -o /dev/null -w '%{http_code}' \
                 --connect-timeout 5 \
                 --max-time 30 \
                 "$url" || true)"
+
+              if [ "$code" = "405" ]; then
+                code="$(curl -sS -o /dev/null -w '%{http_code}' \
+                  --connect-timeout 5 \
+                  --max-time 30 \
+                  "$url" || true)"
+              fi
 
               if [ "$code" = "200" ]; then
                 return 0
@@ -186,7 +193,11 @@ jobs:
                 return 1
               fi
 
-              delay=$((attempt * 2))
+              if [ "$code" = "429" ]; then
+                delay=$((attempt * 15))
+              else
+                delay=$((attempt * 2))
+              fi
               echo "→ Transient HTTP status ${code:-curl-failed} for $asset (attempt $attempt/8); retrying in ${delay}s"
               sleep "$delay"
             done
@@ -196,7 +207,7 @@ jobs:
 
           while IFS= read -r asset; do
             fetch_asset "$asset"
-            sleep 0.2
+            sleep 1.2
           done < builder-static-refs.txt
 
       # ─── Step 8: 增量部署到 dist 分支 ───
