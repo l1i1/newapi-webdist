@@ -68,7 +68,7 @@ jobs:
         run: |
           UPSTREAM="${{ steps.upstream.outputs.tag }}"
           DEPLOYED="${{ steps.deployed.outputs.deployed }}"
-          TARGET="${UPSTREAM}+docker-builder"
+          TARGET="${UPSTREAM}+docker-builder-verified"
 
           if [ "$TARGET" = "$DEPLOYED" ]; then
             echo "→ Already up to date — skipping"
@@ -100,7 +100,8 @@ jobs:
           echo "→ Actual tag   : $ACTUAL_TAG"
           echo "→ Commit SHA   : $ACTUAL_SHA"
           if [ "$ACTUAL_TAG" != "$EXPECTED_TAG" ]; then
-            echo "::warning::Tag mismatch! Expected $EXPECTED_TAG but checked out $ACTUAL_TAG ($ACTUAL_SHA)"
+            echo "::error::Tag mismatch! Expected $EXPECTED_TAG but checked out $ACTUAL_TAG ($ACTUAL_SHA)"
+            exit 1
           else
             echo "✅ Tag matches — building from $ACTUAL_TAG ($ACTUAL_SHA)"
           fi
@@ -120,7 +121,50 @@ jobs:
           docker cp "$CONTAINER_ID:/build/dist/." "$GITHUB_WORKSPACE/docker-builder-output/"
           test -f "$GITHUB_WORKSPACE/docker-builder-output/index.html"
 
-      # ─── Step 6: 增量部署到 dist 分支 ───
+      # ─── Step 6: 校验构建产物与官方 Docker 镜像服务的入口一致 ───
+      - name: Verify against official Docker image
+        if: steps.check.outputs.should_build == 'true'
+        env:
+          VERSION: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -e
+
+          IMAGE="calciumion/new-api:$VERSION"
+          echo "→ Verifying frontend index against $IMAGE"
+
+          docker pull "$IMAGE"
+          CONTAINER_ID="$(docker run -d -p 3000:3000 "$IMAGE")"
+          trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
+
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/ -o official-index.html; then
+              break
+            fi
+            sleep 1
+          done
+
+          python - <<'PY'
+          import pathlib
+          import re
+
+          pattern = re.compile(r'/static/[^"\'<>\s)]+')
+          builder_refs = sorted(set(pattern.findall(pathlib.Path('docker-builder-output/index.html').read_text())))
+          official_refs = sorted(set(pattern.findall(pathlib.Path('official-index.html').read_text())))
+
+          pathlib.Path('builder-static-refs.txt').write_text('\n'.join(builder_refs) + '\n')
+          pathlib.Path('official-static-refs.txt').write_text('\n'.join(official_refs) + '\n')
+
+          if not builder_refs or not official_refs:
+            raise SystemExit('Missing static references in builder or official index.html')
+          PY
+
+          cmp -s builder-static-refs.txt official-static-refs.txt || {
+            echo "::error::Docker builder static asset references differ from official Docker image"
+            diff -u builder-static-refs.txt official-static-refs.txt || true
+            exit 1
+          }
+
+      # ─── Step 7: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
       # Rsbuild 的内容哈希文件名（index-SxSn0p90.js）自然实现"多版本 hash 产物并存"；
       # 同名文件（index.html 等）覆盖更新。rsync 不加 --delete，旧哈希文件保留。
@@ -157,7 +201,7 @@ jobs:
           # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
           rsync -a docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
-          echo "$VERSION+docker-builder" > "$DEPLOY_DIR/.deployed-version"
+          echo "$VERSION+docker-builder-verified" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
 
           echo "::group::Commit & push"
