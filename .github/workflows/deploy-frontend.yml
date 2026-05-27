@@ -113,11 +113,10 @@ jobs:
         run: |
           echo "→ Building frontend from official Docker builder stage: $VERSION"
           echo "$VERSION" > upstream/VERSION
-          docker build \
-            --target builder \
-            --output type=local,dest="$GITHUB_WORKSPACE/docker-builder-output" \
-            -f upstream/Dockerfile \
-            upstream
+          docker build --target builder -t new-api-frontend-builder -f upstream/Dockerfile upstream
+          CONTAINER_ID="$(docker create new-api-frontend-builder)"
+          trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
+          docker cp "$CONTAINER_ID:/build/dist" "$GITHUB_WORKSPACE/docker-builder-output"
           test -f "$GITHUB_WORKSPACE/docker-builder-output/dist/index.html"
 
       # ─── Step 6: 增量部署到 dist 分支 ───
