@@ -68,12 +68,13 @@ jobs:
         run: |
           UPSTREAM="${{ steps.upstream.outputs.tag }}"
           DEPLOYED="${{ steps.deployed.outputs.deployed }}"
+          TARGET="${UPSTREAM}+docker-builder"
 
-          if [ "$UPSTREAM" = "$DEPLOYED" ]; then
+          if [ "$TARGET" = "$DEPLOYED" ]; then
             echo "→ Already up to date — skipping"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
-            echo "→ New release: $UPSTREAM (was $DEPLOYED)"
+            echo "→ New Docker builder release: $TARGET (was ${DEPLOYED:-none})"
             echo "should_build=true"  >> "$GITHUB_OUTPUT"
           fi
 
@@ -104,46 +105,22 @@ jobs:
             echo "✅ Tag matches — building from $ACTUAL_TAG ($ACTUAL_SHA)"
           fi
 
-      # ─── Step 5: 安装 Bun ───
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        if: steps.check.outputs.should_build == 'true'
-        with:
-          bun-version: latest
-
-      # ─── Step 6: 缓存 ───
-      # ⚠️ hashFiles 依赖 Step 4 checkout 已完成（由 should_build if 保证）
-      # 缓存 Bun 全局包仓库（避免重复下载 tarball）
-      - name: Cache Bun global store
-        if: steps.check.outputs.should_build == 'true'
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-cache-${{ runner.os }}-${{ hashFiles('upstream/web/default/bun.lock') }}
-          restore-keys: bun-cache-${{ runner.os }}-
-
-      # 缓存 node_modules（避免重复 bun install）
-      - name: Cache node_modules
-        if: steps.check.outputs.should_build == 'true'
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
-        with:
-          path: upstream/web/default/node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('upstream/web/default/bun.lock') }}
-          restore-keys: node-modules-${{ runner.os }}-
-
-      # ─── Step 7: 编译 web/default ───
-      - name: Build frontend (web/default)
+      # ─── Step 5: 使用官方 Dockerfile 的 builder 阶段构建 web/default ───
+      - name: Build frontend with upstream Docker builder
         if: steps.check.outputs.should_build == 'true'
         env:
-          CI: ''
           VERSION: ${{ steps.upstream.outputs.tag }}
         run: |
-          echo "→ Building version: $VERSION"
-          cd upstream/web/default
-          bun install --frozen-lockfile
-          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
-          cd "$GITHUB_WORKSPACE"
+          echo "→ Building frontend from official Docker builder stage: $VERSION"
+          echo "$VERSION" > upstream/VERSION
+          docker build \
+            --target builder \
+            --output type=local,dest="$GITHUB_WORKSPACE/docker-builder-output" \
+            -f upstream/Dockerfile \
+            upstream
+          test -f "$GITHUB_WORKSPACE/docker-builder-output/dist/index.html"
 
-      # ─── Step 8: 增量部署到 dist 分支 ───
+      # ─── Step 6: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
       # Rsbuild 的内容哈希文件名（index-SxSn0p90.js）自然实现"多版本 hash 产物并存"；
       # 同名文件（index.html 等）覆盖更新。rsync 不加 --delete，旧哈希文件保留。
@@ -178,9 +155,9 @@ jobs:
 
           echo "::group::Copy build output"
           # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
-          rsync -a upstream/web/default/dist/ "$DEPLOY_DIR/"
+          rsync -a docker-builder-output/dist/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
-          echo "$VERSION" > "$DEPLOY_DIR/.deployed-version"
+          echo "$VERSION+docker-builder" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
 
           echo "::group::Commit & push"
