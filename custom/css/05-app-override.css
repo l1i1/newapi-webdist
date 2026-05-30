@@ -1,0 +1,95 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOKENESS — Radius Override Only
+   Removes all border-radius globally and from shadcn/ui components.
+   No colors, borders, shadows, or animations are modified.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Global radius kill */
+*, *::before, *::after {
+  border-radius: 0 !important;
+}
+
+img, svg, [role="img"] {
+  border-radius: revert;
+}
+
+/* Ensure shadcn/ui generated classes are also zero-radius */
+button,
+a[role="button"],
+[data-slot="button"],
+.btn,
+[class*="button"],
+[class*="Button"],
+[class*="card"],
+[class*="Card"],
+[data-slot="card"],
+input,
+textarea,
+select,
+[class*="input"],
+[class*="Input"],
+[data-slot="input"],
+table,
+[class*="table"],
+[class*="Table"],
+[data-slot="table"],
+[class*="sidebar"],
+[class*="Sidebar"],
+[data-slot="sidebar"],
+[class*="dialog"],
+[class*="Dialog"],
+[class*="modal"],
+[class*="Modal"],
+[class*="sheet"],
+[class*="Sheet"],
+[class*="dropdown"],
+[class*="Dropdown"],
+[class*="menu"],
+[class*="Menu"],
+[class*="popover"],
+[class*="Popover"],
+[class*="badge"],
+[class*="Badge"],
+[data-slot="badge"],
+[class*="tabs"],
+[class*="Tabs"],
+[data-slot="tabs"],
+[class*="accordion"],
+[class*="Accordion"],
+[data-slot="accordion"],
+[class*="pagination"],
+[class*="Pagination"],
+[data-slot="pagination"],
+[class*="alert"],
+[class*="Alert"],
+[data-slot="alert"],
+[class*="avatar"],
+[class*="Avatar"],
+[data-slot="avatar"],
+[class*="progress"],
+[class*="Progress"],
+[data-slot="progress"],
+[class*="skeleton"],
+[class*="Skeleton"],
+[data-slot="skeleton"],
+[class*="tooltip"],
+[class*="Tooltip"],
+[data-slot="tooltip"],
+[class*="breadcrumb"],
+[class*="Breadcrumb"],
+[data-slot="breadcrumb"],
+[class*="separator"],
+[class*="Separator"],
+[data-slot="separator"],
+code,
+pre,
+[class*="code"],
+[class*="Code"],
+.panel,
+[class*="panel"],
+[class*="Panel"],
+[class*="paper"],
+[class*="Paper"],
+.glass-1, .glass-2, .glass-3, .glass-4, .glass-5 {
+  border-radius: 0 !important;
+}
