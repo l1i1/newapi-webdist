@@ -1,0 +1,9 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOKENESS — Radius Override Only
+   ═══════════════════════════════════════════════════════════════ */
+
+.tokeness-home {
+  --tokeness-radius:   0px;
+  --tokeness-radius-sm: 0px;
+  --tokeness-radius-lg: 0px;
+}
