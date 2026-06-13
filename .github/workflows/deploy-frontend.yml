@@ -109,7 +109,7 @@ jobs:
           DEPLOYED_VERSION: ${{ steps.deployed.outputs.deployed }}
           IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
         run: |
-          TARGET="${UPSTREAM_TAG}+docker-builder-verified-all"
+          TARGET="${UPSTREAM_TAG}+http-extracted"
 
           if [ "$IMAGE_AVAILABLE" != "true" ]; then
             echo "→ Official Docker image for $UPSTREAM_TAG is not available yet — skipping until next run"
@@ -122,52 +122,8 @@ jobs:
             echo "should_build=true"  >> "$GITHUB_OUTPUT"
           fi
 
-      # ─── Step 5: 检出上游源代码（指定版本 tag） ───
-      - name: Checkout upstream source
-        if: steps.check.outputs.should_build == 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          repository: QuantumNous/new-api
-          ref: ${{ steps.upstream.outputs.tag }}
-          path: upstream
-          fetch-depth: 0
-
-      # 校验：确认检出的 commit 与目标 tag 一致
-      - name: Verify checked-out version
-        if: steps.check.outputs.should_build == 'true'
-        env:
-          EXPECTED_TAG: ${{ steps.upstream.outputs.tag }}
-        run: |
-          cd upstream
-          ACTUAL_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "detached")
-          ACTUAL_SHA=$(git rev-parse --short HEAD)
-          echo "→ Expected tag : $EXPECTED_TAG"
-          echo "→ Actual tag   : $ACTUAL_TAG"
-          echo "→ Commit SHA   : $ACTUAL_SHA"
-          if [ "$ACTUAL_TAG" != "$EXPECTED_TAG" ]; then
-            echo "::error::Tag mismatch! Expected $EXPECTED_TAG but checked out $ACTUAL_TAG ($ACTUAL_SHA)"
-            exit 1
-          else
-            echo "✅ Tag matches — building from $ACTUAL_TAG ($ACTUAL_SHA)"
-          fi
-
-      # ─── Step 6: 使用官方 Dockerfile 的 builder 阶段构建 web/default ───
-      - name: Build frontend with upstream Docker builder
-        if: steps.check.outputs.should_build == 'true'
-        env:
-          VERSION: ${{ steps.upstream.outputs.tag }}
-        run: |
-          echo "→ Building frontend from official Docker builder stage: $VERSION"
-          echo "$VERSION" > upstream/VERSION
-          docker build --target builder -t new-api-frontend-builder -f upstream/Dockerfile upstream
-          CONTAINER_ID="$(docker create --entrypoint sh new-api-frontend-builder -c true)"
-          trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
-          mkdir -p "$GITHUB_WORKSPACE/docker-builder-output"
-          docker cp "$CONTAINER_ID:/build/dist/." "$GITHUB_WORKSPACE/docker-builder-output/"
-          test -f "$GITHUB_WORKSPACE/docker-builder-output/index.html"
-
-      # ─── Step 7: 校验官方 Docker 镜像可服务同名静态资源 ───
-      - name: Verify against official Docker image
+      # ─── Step 5: 通过 HTTP 从官方 Docker 镜像提取前端静态资源 ───
+      - name: Extract frontend via HTTP from official Docker image
         if: steps.check.outputs.should_build == 'true'
         env:
           VERSION: ${{ steps.upstream.outputs.tag }}
@@ -175,67 +131,79 @@ jobs:
           set -e
 
           IMAGE="calciumion/new-api:$VERSION"
-          echo "→ Verifying frontend index against $IMAGE"
+          echo "→ Extracting frontend via HTTP from: $IMAGE"
+          echo "::group::Pull and start container"
 
           docker pull "$IMAGE"
-          CONTAINER_ID="$(docker run -d -p 3000:3000 "$IMAGE")"
+          CONTAINER_ID="$(docker run -d -p 3100:3000 "$IMAGE")"
           trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
 
-          find docker-builder-output/static -type f \
-            | sed 's#^docker-builder-output##' \
-            | sort > builder-static-refs.txt
+          # 等待服务启动
+          echo "Waiting for service to start..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:3100/ >/dev/null 2>&1; then
+              echo "✅ Service ready"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Service failed to start after 30 attempts"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::endgroup::"
 
-          FIRST_REF="$(head -n 1 builder-static-refs.txt)"
-          if [ -z "$FIRST_REF" ]; then
-            echo "::error::Docker builder output contains no static files"
-            exit 1
-          fi
+          echo "::group::Parse and download resources"
+          DIST_DIR="$GITHUB_WORKSPACE/docker-builder-output"
+          mkdir -p "$DIST_DIR"
 
-          fetch_asset() {
-            local asset="$1"
-            local url="http://127.0.0.1:3000$asset"
-            local code
-            local attempt
-            local delay
+          # 1. 下载 index.html
+          echo "Downloading index.html..."
+          curl -sf http://localhost:3100/ -o "$DIST_DIR/index.html"
 
-            for attempt in {1..8}; do
-              code="$(curl -sS --head -o /dev/null -w '%{http_code}' \
-                --connect-timeout 5 \
-                --max-time 30 \
-                "$url" || true)"
+          # 2. 解析 HTML 中的资源引用
+          echo "Parsing HTML resources..."
+          grep -oE 'src="[^"]+"|href="[^"]+"' "$DIST_DIR/index.html" \
+            | sed 's/src="//;s/href="//;s/"//' \
+            | grep -v '^http' \
+            | sort -u > /tmp/html-resources.txt
 
-              if [ "$code" = "405" ]; then
-                code="$(curl -sS -o /dev/null -w '%{http_code}' \
-                  --connect-timeout 5 \
-                  --max-time 30 \
-                  "$url" || true)"
-              fi
+          # 3. 下载 HTML 引用的资源
+          echo "Downloading HTML resources..."
+          while IFS= read -r resource; do
+            [ -z "$resource" ] && continue
+            # 构建本地路径
+            local_path="$DIST_DIR${resource}"
+            mkdir -p "$(dirname "$local_path")"
+            echo "  → $resource"
+            curl -sf "http://localhost:3100${resource}" -o "$local_path"
+          done < /tmp/html-resources.txt
 
-              if [ "$code" = "200" ]; then
-                return 0
-              fi
+          # 4. 解析 CSS 中的字体引用
+          echo "Parsing CSS font resources..."
+          find "$DIST_DIR" -name "*.css" -exec grep -oE "url\\(/static/font/[^)]+\\)" {} \; \
+            | sed 's/url(//;s/)//;s/["'"'"']//g' \
+            | sort -u > /tmp/font-resources.txt
 
-              if [ "$attempt" -eq 8 ]; then
-                echo "::error::Official Docker image does not serve $asset after $attempt attempts (last HTTP status: ${code:-curl-failed})"
-                return 1
-              fi
+          # 5. 下载字体资源
+          echo "Downloading font resources..."
+          while IFS= read -r font; do
+            [ -z "$font" ] && continue
+            local_path="$DIST_DIR${font}"
+            mkdir -p "$(dirname "$local_path")"
+            echo "  → $font"
+            curl -sf "http://localhost:3100${font}" -o "$local_path"
+          done < /tmp/font-resources.txt
+          echo "::endgroup::"
 
-              if [ "$code" = "429" ]; then
-                delay=$((attempt * 15))
-              else
-                delay=$((attempt * 2))
-              fi
-              echo "→ Transient HTTP status ${code:-curl-failed} for $asset (attempt $attempt/8); retrying in ${delay}s"
-              sleep "$delay"
-            done
-          }
-
-          fetch_asset "$FIRST_REF"
-
-          while IFS= read -r asset; do
-            fetch_asset "$asset"
-            sleep 1.2
-          done < builder-static-refs.txt
+          # 6. 验证
+          echo "::group::Verification"
+          html_count=$(wc -l < /tmp/html-resources.txt)
+          font_count=$(wc -l < /tmp/font-resources.txt)
+          total=$((html_count + font_count))
+          echo "✅ Extracted: index.html + $html_count HTML resources + $font_count fonts = $total files"
+          test -f "$DIST_DIR/index.html"
+          echo "::endgroup::"
 
       # ─── Step 8: 增量部署到 dist 分支 ───
       # 策略：克隆 dist 分支（不存在则创建），将构建产物覆写到克隆目录。
@@ -274,7 +242,7 @@ jobs:
           # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
           rsync -a docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
-          echo "$VERSION+docker-builder-verified-all" > "$DEPLOY_DIR/.deployed-version"
+          echo "$VERSION+http-extracted" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
 
           echo "::group::Commit & push"
