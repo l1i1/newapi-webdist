@@ -146,12 +146,14 @@ jobs:
           echo "→ Building classic frontend from source: $VERSION"
           echo "::group::Checkout upstream source"
 
-          # 克隆上游仓库（仅 web 目录和 Dockerfile）
+          # 克隆上游仓库（仅 web 目录）
           git clone --depth 1 --filter=blob:none --sparse --branch "$VERSION" \
             https://github.com/QuantumNous/new-api.git upstream
           cd upstream
-          git sparse-checkout set web Dockerfile VERSION
+          git sparse-checkout set web
           echo "$VERSION" > VERSION
+          # 获取 Dockerfile
+          git checkout HEAD -- Dockerfile
           echo "::endgroup::"
 
           echo "::group::Build with official Dockerfile"
