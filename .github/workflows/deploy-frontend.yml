@@ -249,7 +249,8 @@ jobs:
 
           echo "::group::Copy build output"
           # --delete：删除旧版本哈希文件，避免 dist 分支无限膨胀
-          rsync -a --delete docker-builder-output/ "$DEPLOY_DIR/"
+          # --exclude .git：保留 git 元数据
+          rsync -a --delete --exclude .git docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
           echo "$VERSION+http-extracted" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
