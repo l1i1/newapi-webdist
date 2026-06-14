@@ -11,6 +11,11 @@ on:
         description: '上游 QuantumNous/new-api 的版本号（留空则自动取最新 Release）'
         required: false
         default: ''
+      force:
+        description: '强制重新部署（忽略版本检查，用于清理旧文件）'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -108,10 +113,14 @@ jobs:
           UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
           DEPLOYED_VERSION: ${{ steps.deployed.outputs.deployed }}
           IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
+          FORCE: ${{ github.event.inputs.force }}
         run: |
           TARGET="${UPSTREAM_TAG}+http-extracted"
 
-          if [ "$IMAGE_AVAILABLE" != "true" ]; then
+          if [ "$FORCE" = "true" ]; then
+            echo "→ Force mode — redeploying regardless of version"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$IMAGE_AVAILABLE" != "true" ]; then
             echo "→ Official Docker image for $UPSTREAM_TAG is not available yet — skipping until next run"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           elif [ "$TARGET" = "$DEPLOYED_VERSION" ]; then
