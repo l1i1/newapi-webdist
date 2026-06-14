@@ -1,6 +1,0 @@
-/* ═══════════════════════════════════════════════════════════════
-   TOKENESS — Radius Override (Production-Ready Minimal)
-   ═══════════════════════════════════════════════════════════════ */
-
-* { border-radius: 0 !important; }
-img, svg, [role="img"] { border-radius: revert; }
