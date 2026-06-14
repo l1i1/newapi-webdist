@@ -119,7 +119,7 @@ jobs:
           IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
           FORCE: ${{ github.event.inputs.force }}
         run: |
-          TARGET="${UPSTREAM_TAG}+http-extracted"
+          TARGET="${UPSTREAM_TAG}+classic"
 
           if [ "$FORCE" = "true" ]; then
             echo "→ Force mode — redeploying regardless of version"
@@ -135,87 +135,38 @@ jobs:
             echo "should_build=true"  >> "$GITHUB_OUTPUT"
           fi
 
-      # ─── Step 5: 通过 HTTP 从官方 Docker 镜像提取前端静态资源 ───
-      - name: Extract frontend via HTTP from official Docker image
+      # ─── Step 5: 从源码构建 classic 主题 ───
+      - name: Build classic frontend from source
         if: steps.check.outputs.should_build == 'true'
         env:
           VERSION: ${{ steps.upstream.outputs.tag }}
         run: |
           set -e
 
-          IMAGE="calciumion/new-api:$VERSION"
-          echo "→ Extracting frontend via HTTP from: $IMAGE"
-          echo "::group::Pull and start container"
+          echo "→ Building classic frontend from source: $VERSION"
+          echo "::group::Checkout upstream source"
 
-          docker pull "$IMAGE"
-          CONTAINER_ID="$(docker run -d -p 3100:3000 "$IMAGE")"
+          # 克隆上游仓库（仅 web 目录和 Dockerfile）
+          git clone --depth 1 --filter=blob:none --sparse --branch "$VERSION" \
+            https://github.com/QuantumNous/new-api.git upstream
+          cd upstream
+          git sparse-checkout set web Dockerfile VERSION
+          echo "$VERSION" > VERSION
+          echo "::endgroup::"
+
+          echo "::group::Build with official Dockerfile"
+          # 使用官方 Dockerfile 的 builder-classic 阶段
+          docker build --target builder-classic -t new-api-classic-builder -f Dockerfile .
+          echo "::endgroup::"
+
+          echo "::group::Extract build output"
+          CONTAINER_ID="$(docker create new-api-classic-builder)"
           trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
 
-          # 等待服务启动
-          echo "Waiting for service to start..."
-          for i in {1..30}; do
-            if curl -sf http://localhost:3100/ >/dev/null 2>&1; then
-              echo "✅ Service ready"
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "::error::Service failed to start after 30 attempts"
-              exit 1
-            fi
-            sleep 1
-          done
-          echo "::endgroup::"
-
-          echo "::group::Parse and download resources"
           DIST_DIR="$GITHUB_WORKSPACE/docker-builder-output"
-          mkdir -p "$DIST_DIR"
-
-          # 1. 下载 index.html
-          echo "Downloading index.html..."
-          curl -sf http://localhost:3100/ -o "$DIST_DIR/index.html"
-
-          # 2. 解析 HTML 中的资源引用
-          echo "Parsing HTML resources..."
-          grep -oE 'src="[^"]+"|href="[^"]+"' "$DIST_DIR/index.html" \
-            | sed 's/src="//;s/href="//;s/"//' \
-            | grep -v '^http' \
-            | sort -u > /tmp/html-resources.txt
-
-          # 3. 下载 HTML 引用的资源
-          echo "Downloading HTML resources..."
-          while IFS= read -r resource; do
-            [ -z "$resource" ] && continue
-            # 构建本地路径
-            local_path="$DIST_DIR${resource}"
-            mkdir -p "$(dirname "$local_path")"
-            echo "  → $resource"
-            curl -sf "http://localhost:3100${resource}" -o "$local_path"
-          done < /tmp/html-resources.txt
-
-          # 4. 解析 CSS 中的字体引用
-          echo "Parsing CSS font resources..."
-          find "$DIST_DIR" -name "*.css" -exec grep -oE "url\\(/static/font/[^)]+\\)" {} \; \
-            | sed 's/url(//;s/)//;s/["'"'"']//g' \
-            | sort -u > /tmp/font-resources.txt
-
-          # 5. 下载字体资源
-          echo "Downloading font resources..."
-          while IFS= read -r font; do
-            [ -z "$font" ] && continue
-            local_path="$DIST_DIR${font}"
-            mkdir -p "$(dirname "$local_path")"
-            echo "  → $font"
-            curl -sf "http://localhost:3100${font}" -o "$local_path"
-          done < /tmp/font-resources.txt
-          echo "::endgroup::"
-
-          # 6. 验证
-          echo "::group::Verification"
-          html_count=$(wc -l < /tmp/html-resources.txt)
-          font_count=$(wc -l < /tmp/font-resources.txt)
-          total=$((html_count + font_count))
-          echo "✅ Extracted: index.html + $html_count HTML resources + $font_count fonts = $total files"
+          docker cp "$CONTAINER_ID:/build/web/classic/dist/." "$DIST_DIR/"
           test -f "$DIST_DIR/index.html"
+          echo "✅ Classic frontend extracted"
           echo "::endgroup::"
 
       # ─── Step 8: 增量部署到 dist 分支 ───
@@ -257,7 +208,7 @@ jobs:
           # --exclude static/custom：保留用户自定义文件
           rsync -a --delete --exclude .git --exclude static/custom docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
-          echo "$VERSION+http-extracted" > "$DEPLOY_DIR/.deployed-version"
+          echo "$VERSION+classic" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
 
           echo "::group::Sync custom files from main"
