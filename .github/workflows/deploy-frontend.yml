@@ -239,8 +239,8 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Copy build output"
-          # 不加 --delete：同名覆盖 + 新增哈希文件，旧哈希文件保留
-          rsync -a docker-builder-output/ "$DEPLOY_DIR/"
+          # --delete：删除旧版本哈希文件，避免 dist 分支无限膨胀
+          rsync -a --delete docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
           echo "$VERSION+http-extracted" > "$DEPLOY_DIR/.deployed-version"
           echo "::endgroup::"
