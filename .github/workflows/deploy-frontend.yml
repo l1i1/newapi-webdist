@@ -4,6 +4,10 @@ on:
   # ── 自动：每小时检查上游是否有新 Release ──
   schedule:
     - cron: '0 * * * *'
+  # ── 自动：main 分支的 custom 文件更新时触发 ──
+  push:
+    branches: [main]
+    paths: [static/custom/**]
   # ── 手动：可指定上游版本号 ──
   workflow_dispatch:
     inputs:
@@ -250,9 +254,23 @@ jobs:
           echo "::group::Copy build output"
           # --delete：删除旧版本哈希文件，避免 dist 分支无限膨胀
           # --exclude .git：保留 git 元数据
-          rsync -a --delete --exclude .git docker-builder-output/ "$DEPLOY_DIR/"
+          # --exclude static/custom：保留用户自定义文件
+          rsync -a --delete --exclude .git --exclude static/custom docker-builder-output/ "$DEPLOY_DIR/"
           # 写入版本标记文件（用于下次 diff 比较）
           echo "$VERSION+http-extracted" > "$DEPLOY_DIR/.deployed-version"
+          echo "::endgroup::"
+
+          echo "::group::Sync custom files from main"
+          # 从 main 分支同步 static/custom 目录
+          CUSTOM_DIR="$GITHUB_WORKSPACE/main-custom"
+          git clone --depth 1 --branch main "$REPO_URL" "$CUSTOM_DIR"
+          if [ -d "$CUSTOM_DIR/static/custom" ]; then
+            rsync -a "$CUSTOM_DIR/static/custom/" "$DEPLOY_DIR/static/custom/"
+            echo "✅ Synced static/custom from main"
+          else
+            echo "→ No static/custom directory in main"
+          fi
+          rm -rf "$CUSTOM_DIR"
           echo "::endgroup::"
 
           echo "::group::Commit & push"
