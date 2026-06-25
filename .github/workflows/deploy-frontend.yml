@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      sync_custom:
+        description: '同步 static/custom 文件到 dist 分支'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -118,6 +123,7 @@ jobs:
           DEPLOYED_VERSION: ${{ steps.deployed.outputs.deployed }}
           IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
           FORCE: ${{ github.event.inputs.force }}
+          SYNC_CUSTOM: ${{ github.event.inputs.sync_custom }}
           IS_CUSTOM_PUSH: ${{ github.event_name == 'push' && (contains(join(github.event.commits.*.modified, ','), 'static/custom/') || contains(join(github.event.commits.*.added, ','), 'static/custom/') || contains(join(github.event.commits.*.removed, ','), 'static/custom/')) }}
         run: |
           TARGET="${UPSTREAM_TAG}+default"
@@ -127,6 +133,9 @@ jobs:
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           elif [ "$IS_CUSTOM_PUSH" = "true" ]; then
             echo "→ Custom files changed — redeploying to sync"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$SYNC_CUSTOM" = "true" ] && [ "$TARGET" = "$DEPLOYED_VERSION" ]; then
+            echo "→ Sync custom mode — redeploying to update custom files"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           elif [ "$IMAGE_AVAILABLE" != "true" ]; then
             echo "→ Official Docker image for $UPSTREAM_TAG is not available yet — skipping until next run"
