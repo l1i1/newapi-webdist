@@ -118,11 +118,15 @@ jobs:
           DEPLOYED_VERSION: ${{ steps.deployed.outputs.deployed }}
           IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
           FORCE: ${{ github.event.inputs.force }}
+          IS_CUSTOM_PUSH: ${{ github.event_name == 'push' && (contains(join(github.event.commits.*.modified, ','), 'static/custom/') || contains(join(github.event.commits.*.added, ','), 'static/custom/') || contains(join(github.event.commits.*.removed, ','), 'static/custom/')) }}
         run: |
           TARGET="${UPSTREAM_TAG}+default"
 
           if [ "$FORCE" = "true" ]; then
             echo "→ Force mode — redeploying regardless of version"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$IS_CUSTOM_PUSH" = "true" ]; then
+            echo "→ Custom files changed — redeploying to sync"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           elif [ "$IMAGE_AVAILABLE" != "true" ]; then
             echo "→ Official Docker image for $UPSTREAM_TAG is not available yet — skipping until next run"
