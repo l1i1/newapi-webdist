@@ -1473,9 +1473,6 @@
             const dialogText = dialog.textContent || "";
             if (!PAYMENT_DIALOG_TITLE_LABELS.some((label) => dialogText.includes(label)))
                 continue;
-            const rechargeAmountRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_RECHARGE_AMOUNT_LABELS);
-            if (rechargeAmountRow)
-                rechargeAmountRow.classList.add("tokeness-payment-dialog-hidden-row");
             const payRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_PAY_LABELS);
             if (!payRow)
                 continue;
