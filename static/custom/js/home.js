@@ -38,24 +38,55 @@
             referralCopy: "New users who register through your invite link will give you 20% of their first top-up back automatically.",
             referralStats: {
                 pending: "Pending",
-                totalIncome: "Total Income",
+                totalIncome: "Total Earned",
                 invites: "Invites"
             },
             epayNotice: "Do not close this page after payment. Wait until it redirects back automatically to avoid delayed crediting."
+        },
+        fr: {
+            referralTitle: "Programme de parrainage",
+            referralCopy: "Les nouveaux utilisateurs inscrits via votre lien vous reversent automatiquement 20% de leur première recharge.",
+            referralStats: {
+                pending: "En attente",
+                totalIncome: "Total gagné",
+                invites: "Invitations"
+            },
+            epayNotice: "Ne fermez pas cette page après le paiement. Attendez la redirection automatique pour éviter tout retard de crédit."
         }
     };
-    const REFERRAL_TITLES = [WALLET_COPY.zh.referralTitle, WALLET_COPY.en.referralTitle];
+    const REFERRAL_TITLES = [
+        WALLET_COPY.zh.referralTitle,
+        WALLET_COPY.en.referralTitle,
+        WALLET_COPY.fr.referralTitle,
+        "Реферальная программа",
+        "紹介プログラム",
+        "Chương trình Giới thiệu"
+    ];
     const REFERRAL_STAT_LABEL_GROUPS = [
-        [WALLET_COPY.zh.referralStats.pending, WALLET_COPY.en.referralStats.pending],
-        [WALLET_COPY.zh.referralStats.totalIncome, WALLET_COPY.en.referralStats.totalIncome],
-        [WALLET_COPY.zh.referralStats.invites, WALLET_COPY.en.referralStats.invites, "Invite"]
+        [WALLET_COPY.zh.referralStats.pending, WALLET_COPY.en.referralStats.pending, WALLET_COPY.fr.referralStats.pending, "Ожидает", "保留中", "Đang chờ"],
+        [WALLET_COPY.zh.referralStats.totalIncome, WALLET_COPY.en.referralStats.totalIncome, WALLET_COPY.fr.referralStats.totalIncome, "Total Income", "Всего заработано", "総収益"],
+        [WALLET_COPY.zh.referralStats.invites, WALLET_COPY.en.referralStats.invites, WALLET_COPY.fr.referralStats.invites, "Invite", "Invitation", "Приглашения"]
     ];
     const REFERRAL_HIDDEN_STAT_LABELS = [
         WALLET_COPY.zh.referralStats.pending,
         WALLET_COPY.zh.referralStats.totalIncome,
         WALLET_COPY.en.referralStats.pending,
-        WALLET_COPY.en.referralStats.totalIncome
+        WALLET_COPY.en.referralStats.totalIncome,
+        "Total Income",
+        WALLET_COPY.fr.referralStats.pending,
+        WALLET_COPY.fr.referralStats.totalIncome,
+        "Ожидает",
+        "Всего заработано",
+        "保留中",
+        "総収益",
+        "Đang chờ",
+        "Total income"
     ];
+    const TRANSFER_TO_BALANCE_LABELS = ["转移到余额", "Transfer to Balance", "Transférer vers le solde", "Перевести на баланс", "残高への振替", "Chuyển vào số dư"];
+    const PAYMENT_DIALOG_TITLE_LABELS = ["确认付款", "Confirm Payment", "Confirmer le paiement", "Подтвердить оплату", "支払いの確認", "Xác nhận Thanh toán"];
+    const PAYMENT_DIALOG_PAY_LABELS = ["您支付", "You Pay", "Vous payez", "Вы платите", "お支払い額", "Bạn thanh toán"];
+    const PAYMENT_DIALOG_METHOD_LABELS = ["付款方式", "Payment Method", "Méthode de paiement", "Способ оплаты", "チャージ方法", "Phương thức thanh toán"];
+    const PAYMENT_DIALOG_RECHARGE_AMOUNT_LABELS = ["充值金额", "Recharge Amount", "Montant de la recharge", "Сумма пополнения", "チャージ額", "Số tiền nạp"];
     // i18n translations
     const translations = {
         zh: {
@@ -277,39 +308,39 @@
     };
     const headTranslations = {
         zh: {
-            title: "Tokeness - 一站式 AI API 接口中转｜全能 API 中转站，一个接口畅连全网主流大模型|开发",
-            metaTitle: "Tokeness - 一站式 AI API 接口中转",
-            metaDescription: "Tokeness一站式AI接口中转，开发者专属全能API中转站，单接口可连通GPT、Claude、DeepSeek等主流大模型。无使用门槛，单密钥通用全系模型，兼容OpenAI接口可无缝对接各类应用，支持自定义密钥时效与额度，仅做数据中转保护隐私，依托渠道优势价格实惠，模型资源丰富、性价比出众。",
+            title: "Tokeness - 一个入口，所有模型 | AI API",
+            metaTitle: "Tokeness - 一个入口，所有模型 | AI API",
+            metaDescription: "Tokeness 提供一个入口接入所有主流 AI 模型。一个 Key 连通 GPT、Claude、DeepSeek 等模型，兼容 OpenAI 接口，支持额度控制、路由管理、消费审计和隐私中转，开发接入更简单。",
             metaKeywords: "AI API Gateway, API 中转站, LLM API, 全模型AI接口, GPT API, Claude API, OpenAI兼容API, AI接口中转, Tokeness, AI API Hub"
         },
         en: {
-            title: "Tokeness - One AI API Gateway for GPT, Claude, DeepSeek and More",
-            metaTitle: "Tokeness - Unified AI API Gateway",
-            metaDescription: "Tokeness is a unified AI API gateway for developers. Use one OpenAI-compatible endpoint and one key to access GPT, Claude, DeepSeek and other mainstream models with quota control, key expiration, privacy-preserving relay, rich model coverage and cost-effective routing.",
+            title: "Tokeness - One Entry, All Models | AI API",
+            metaTitle: "Tokeness - One Entry, All Models | AI API",
+            metaDescription: "Tokeness gives developers one entry to every major AI model. Use one OpenAI-compatible key for GPT, Claude, DeepSeek and more, with quota control, routing management, usage audit and privacy-preserving relay.",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, AI API proxy, Tokeness, AI API Hub"
         },
         fr: {
-            title: "Tokeness - Passerelle API IA unifiee pour GPT, Claude, DeepSeek et plus",
-            metaTitle: "Tokeness - Passerelle API IA unifiee",
-            metaDescription: "Tokeness fournit une passerelle API IA unifiee pour les developpeurs: un endpoint compatible OpenAI, une seule cle, controle des quotas, relais respectueux de la confidentialite et acces a GPT, Claude, DeepSeek et d'autres modeles.",
+            title: "Tokeness - Une entree, tous les modeles | AI API",
+            metaTitle: "Tokeness - Une entree, tous les modeles | AI API",
+            metaDescription: "Tokeness offre aux developpeurs une entree unique vers tous les grands modeles IA. Une seule cle compatible OpenAI donne acces a GPT, Claude, DeepSeek et plus, avec controle des quotas, routage, audit d'usage et relais respectueux de la confidentialite.",
             metaKeywords: "AI API Gateway, API IA, LLM API, GPT API, Claude API, API compatible OpenAI, Tokeness"
         },
         ru: {
-            title: "Tokeness - Unified AI API Gateway for GPT, Claude, DeepSeek and More",
-            metaTitle: "Tokeness - Unified AI API Gateway",
-            metaDescription: "Tokeness provides one OpenAI-compatible AI API gateway and one key for GPT, Claude, DeepSeek and other mainstream models, with quota control, privacy-preserving relay and cost-effective routing.",
+            title: "Tokeness - Один вход, все модели | AI API",
+            metaTitle: "Tokeness - Один вход, все модели | AI API",
+            metaDescription: "Tokeness дает разработчикам один вход ко всем основным AI-моделям. Один OpenAI-совместимый ключ подключает GPT, Claude, DeepSeek и другие модели с контролем квот, управлением маршрутизацией, аудитом расходов и приватным транзитом данных.",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
         },
         ja: {
-            title: "Tokeness - GPT、Claude、DeepSeek につながる統合 AI API Gateway",
-            metaTitle: "Tokeness - 統合 AI API Gateway",
-            metaDescription: "Tokeness は OpenAI 互換の単一エンドポイントと単一キーで GPT、Claude、DeepSeek など主要モデルへ接続できる AI API Gateway です。クォータ管理、キー期限、プライバシーを守る中継、低コストなルーティングに対応します。",
+            title: "Tokeness - 一つの入口、すべてのモデル | AI API",
+            metaTitle: "Tokeness - 一つの入口、すべてのモデル | AI API",
+            metaDescription: "Tokeness は開発者向けに、主要な AI モデルへ接続する一つの入口を提供します。OpenAI 互換の一つの Key で GPT、Claude、DeepSeek などを利用でき、クォータ管理、ルーティング、利用監査、プライバシーを守る中継に対応します。",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
         },
         vi: {
-            title: "Tokeness - Cong AI API thong nhat cho GPT, Claude, DeepSeek va hon the nua",
-            metaTitle: "Tokeness - Cong AI API thong nhat",
-            metaDescription: "Tokeness cung cap mot cong AI API tuong thich OpenAI cho nha phat trien: mot endpoint, mot key, truy cap GPT, Claude, DeepSeek va cac mo hinh pho bien khac voi quan ly quota, thoi han key, relay bao ve rieng tu va dinh tuyen tiet kiem chi phi.",
+            title: "Tokeness - Mot loi vao, tat ca mo hinh | AI API",
+            metaTitle: "Tokeness - Mot loi vao, tat ca mo hinh | AI API",
+            metaDescription: "Tokeness cho nha phat trien mot loi vao den tat ca mo hinh AI pho bien. Mot key tuong thich OpenAI ket noi GPT, Claude, DeepSeek va nhieu mo hinh khac, kem quan ly quota, dieu phoi tuyen, kiem toan su dung va relay bao ve rieng tu.",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
         }
     };
@@ -322,6 +353,16 @@
     function normalizeLanguage(value) {
         return readSupportedLanguage(value) || "en";
     }
+    function readRenderedLanguage() {
+        const text = document.body ? document.body.textContent || "" : "";
+        if (!text)
+            return null;
+        if (text.includes("控制台") || text.includes("模型广场") || text.includes("推荐计划") || text.includes("系统公告"))
+            return "zh";
+        if (text.includes("Console") || text.includes("Model Square") || text.includes("Referral Program") || text.includes("System Announcements"))
+            return "en";
+        return null;
+    }
     function readSupportedLanguage(value) {
         if (!value)
             return null;
@@ -333,16 +374,25 @@
     }
     function getNewApiLanguage() {
         try {
-            return normalizeLanguage(localStorage.getItem("i18nextLng") || document.documentElement.lang || navigator.language);
+            return readSupportedLanguage(localStorage.getItem("i18nextLng"))
+                || readSupportedLanguage(document.documentElement.lang)
+                || readRenderedLanguage()
+                || normalizeLanguage(navigator.language);
         }
         catch (err) {
-            return normalizeLanguage(document.documentElement.lang || navigator.language);
+            return readSupportedLanguage(document.documentElement.lang)
+                || readRenderedLanguage()
+                || normalizeLanguage(navigator.language);
         }
     }
     function t(key) { return (translations[currentLang] || translations.en)[key] || translations.en[key] || key; }
     function ht(key) { return (headTranslations[currentLang] || headTranslations.en)[key] || headTranslations.en[key] || ""; }
     function walletCopy() {
-        return currentLang === "zh" ? WALLET_COPY.zh : WALLET_COPY.en;
+        if (currentLang === "zh")
+            return WALLET_COPY.zh;
+        if (currentLang === "fr")
+            return WALLET_COPY.fr;
+        return WALLET_COPY.en;
     }
     function upsertNamedMeta(name, content) {
         if (!document.head || !content)
@@ -716,6 +766,7 @@
     function localizeMultilingualContent(root) {
         if (!root)
             return;
+        localizeTokenessTextElements(root);
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         const nodes = [];
         let node = walker.nextNode();
@@ -731,6 +782,33 @@
                 localizedTextSources.set(textNode, sourceText);
                 textNode.nodeValue = localized;
             }
+        }
+    }
+    function localizeTokenessTextElements(root) {
+        if (!root || typeof root.querySelectorAll !== "function")
+            return;
+        const parents = new Set();
+        for (const element of Array.from(root.querySelectorAll("tokeness-text"))) {
+            if (element.parentElement)
+                parents.add(element.parentElement);
+        }
+        for (const parent of parents) {
+            const localizedElements = Array.from(parent.children).filter((element) => element.tagName.toLowerCase() === "tokeness-text");
+            if (localizedElements.length === 0)
+                continue;
+            const values = {};
+            for (const element of localizedElements) {
+                const lang = normalizeLanguage(element.getAttribute("lang"));
+                values[lang] = element.textContent || "";
+            }
+            const localized = pickLocalizedValue(values);
+            if (typeof localized !== "string")
+                continue;
+            const textNode = document.createTextNode(localized);
+            parent.insertBefore(textNode, localizedElements[0]);
+            for (const element of localizedElements)
+                element.remove();
+            localizedTextSources.set(textNode, localizedElements.map((element) => element.outerHTML).join(""));
         }
     }
     function watchNewApiLanguage() {
@@ -857,6 +935,9 @@
   grid-template-columns: minmax(0, 1fr) !important;
 }
 .tokeness-referral-hidden-stat {
+  display: none !important;
+}
+.tokeness-referral-transfer-hidden {
   display: none !important;
 }
 
@@ -1272,6 +1353,7 @@
                 state.isInjected = true;
                 return true;
             }
+            currentLang = getNewApiLanguage();
             mainContainer.classList.add("tokeness-hide-original");
             let wrapper = document.getElementById("tokeness-home-wrapper");
             if (!wrapper) {
@@ -1330,9 +1412,15 @@
         if (!targetNode)
             return;
         state.observer = new MutationObserver(() => {
-            enhanceRechargePage();
-            enhancePaymentDialog();
-            enhanceReferralPlan();
+            localizeMultilingualContent(targetNode);
+            if (getNewApiLanguage() !== currentLang) {
+                scheduleLanguageRefresh();
+            }
+            else {
+                enhanceRechargePage();
+                enhancePaymentDialog();
+                enhanceReferralPlan();
+            }
             if (!isHomePage() || !state.isInjected)
                 return;
             const wrapper = document.getElementById("tokeness-home-wrapper");
@@ -1341,7 +1429,6 @@
                 doInject();
                 return;
             }
-            localizeMultilingualContent(document.body);
             const mainContainer = findMainContainer();
             if (mainContainer && !mainContainer.classList.contains("tokeness-hide-original")) {
                 mainContainer.classList.add("tokeness-hide-original");
@@ -1396,6 +1483,9 @@
             return labels.includes(labelText) && row.children.length >= 2;
         }) || null;
     }
+    function stripTextLabels(value, labels) {
+        return labels.reduce((text, label) => text.replace(label, ""), value).trim();
+    }
     function getPaymentDialogMethodName(methodRow) {
         if (!methodRow)
             return "";
@@ -1403,19 +1493,19 @@
             .filter((element) => element.children.length === 0)
             .map((element) => element.textContent.trim())
             .filter(Boolean)
-            .filter((text) => text !== "付款方式" && text !== "Payment Method");
-        return leafTexts[leafTexts.length - 1] || methodRow.textContent.replace(/付款方式|Payment Method/g, "").trim();
+            .filter((text) => !PAYMENT_DIALOG_METHOD_LABELS.includes(text));
+        return leafTexts[leafTexts.length - 1] || stripTextLabels(methodRow.textContent || "", PAYMENT_DIALOG_METHOD_LABELS);
     }
     function enhancePaymentDialog() {
         const dialogs = Array.from(document.querySelectorAll('[class*="alert-dialog-content"], [role="alertdialog"], [role="dialog"]'));
         for (const dialog of dialogs) {
             const dialogText = dialog.textContent || "";
-            if (!dialogText.includes("确认付款") && !dialogText.includes("Confirm Payment"))
+            if (!PAYMENT_DIALOG_TITLE_LABELS.some((label) => dialogText.includes(label)))
                 continue;
-            const payRow = findPaymentDialogRow(dialog, ["您支付", "You Pay"]);
+            const payRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_PAY_LABELS);
             if (!payRow)
                 continue;
-            const methodRow = findPaymentDialogRow(dialog, ["付款方式", "Payment Method"]);
+            const methodRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_METHOD_LABELS);
             const methodText = getPaymentDialogMethodName(methodRow);
             const isEpay = isEpayPaymentMethodName(methodText);
             payRow.classList.toggle("tokeness-payment-dialog-hidden-row", !isEpay);
@@ -1464,6 +1554,14 @@
     function includesEveryLabelGroup(textContent, labelGroups) {
         return labelGroups.every((labels) => labels.some((label) => textContent.includes(label)));
     }
+    function hideTransferToBalanceButton(cardGrid) {
+        const buttons = Array.from(cardGrid.querySelectorAll("button, a, [role='button']"));
+        for (const button of buttons) {
+            const text = button.textContent ? button.textContent.trim() : "";
+            const shouldHide = TRANSFER_TO_BALANCE_LABELS.some((label) => text === label || text.includes(label));
+            button.classList.toggle("tokeness-referral-transfer-hidden", shouldHide);
+        }
+    }
     function enhanceReferralPlan() {
         const title = findAnyTextElement(REFERRAL_TITLES);
         if (!title)
@@ -1480,6 +1578,7 @@
         const cardGrid = title.closest("[class*='grid']");
         if (!cardGrid)
             return;
+        hideTransferToBalanceButton(cardGrid);
         const statsGrid = Array.from(cardGrid.querySelectorAll("div"))
             .find((element) => includesEveryLabelGroup(element.textContent || "", REFERRAL_STAT_LABEL_GROUPS));
         if (!statsGrid)
