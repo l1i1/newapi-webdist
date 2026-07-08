@@ -766,6 +766,7 @@
     function localizeMultilingualContent(root) {
         if (!root)
             return;
+        localizeTokenessTextElements(root);
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         const nodes = [];
         let node = walker.nextNode();
@@ -781,6 +782,33 @@
                 localizedTextSources.set(textNode, sourceText);
                 textNode.nodeValue = localized;
             }
+        }
+    }
+    function localizeTokenessTextElements(root) {
+        if (!root || typeof root.querySelectorAll !== "function")
+            return;
+        const parents = new Set();
+        for (const element of Array.from(root.querySelectorAll("tokeness-text"))) {
+            if (element.parentElement)
+                parents.add(element.parentElement);
+        }
+        for (const parent of parents) {
+            const localizedElements = Array.from(parent.children).filter((element) => element.tagName.toLowerCase() === "tokeness-text");
+            if (localizedElements.length === 0)
+                continue;
+            const values = {};
+            for (const element of localizedElements) {
+                const lang = normalizeLanguage(element.getAttribute("lang"));
+                values[lang] = element.textContent || "";
+            }
+            const localized = pickLocalizedValue(values);
+            if (typeof localized !== "string")
+                continue;
+            const textNode = document.createTextNode(localized);
+            parent.insertBefore(textNode, localizedElements[0]);
+            for (const element of localizedElements)
+                element.remove();
+            localizedTextSources.set(textNode, localizedElements.map((element) => element.outerHTML).join(""));
         }
     }
     function watchNewApiLanguage() {
@@ -1384,6 +1412,7 @@
         if (!targetNode)
             return;
         state.observer = new MutationObserver(() => {
+            localizeMultilingualContent(targetNode);
             if (getNewApiLanguage() !== currentLang) {
                 scheduleLanguageRefresh();
             }
