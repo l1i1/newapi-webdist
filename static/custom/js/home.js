@@ -38,24 +38,55 @@
             referralCopy: "New users who register through your invite link will give you 20% of their first top-up back automatically.",
             referralStats: {
                 pending: "Pending",
-                totalIncome: "Total Income",
+                totalIncome: "Total Earned",
                 invites: "Invites"
             },
             epayNotice: "Do not close this page after payment. Wait until it redirects back automatically to avoid delayed crediting."
+        },
+        fr: {
+            referralTitle: "Programme de parrainage",
+            referralCopy: "Les nouveaux utilisateurs inscrits via votre lien vous reversent automatiquement 20% de leur première recharge.",
+            referralStats: {
+                pending: "En attente",
+                totalIncome: "Total gagné",
+                invites: "Invitations"
+            },
+            epayNotice: "Ne fermez pas cette page après le paiement. Attendez la redirection automatique pour éviter tout retard de crédit."
         }
     };
-    const REFERRAL_TITLES = [WALLET_COPY.zh.referralTitle, WALLET_COPY.en.referralTitle];
+    const REFERRAL_TITLES = [
+        WALLET_COPY.zh.referralTitle,
+        WALLET_COPY.en.referralTitle,
+        WALLET_COPY.fr.referralTitle,
+        "Реферальная программа",
+        "紹介プログラム",
+        "Chương trình Giới thiệu"
+    ];
     const REFERRAL_STAT_LABEL_GROUPS = [
-        [WALLET_COPY.zh.referralStats.pending, WALLET_COPY.en.referralStats.pending],
-        [WALLET_COPY.zh.referralStats.totalIncome, WALLET_COPY.en.referralStats.totalIncome],
-        [WALLET_COPY.zh.referralStats.invites, WALLET_COPY.en.referralStats.invites, "Invite"]
+        [WALLET_COPY.zh.referralStats.pending, WALLET_COPY.en.referralStats.pending, WALLET_COPY.fr.referralStats.pending, "Ожидает", "保留中", "Đang chờ"],
+        [WALLET_COPY.zh.referralStats.totalIncome, WALLET_COPY.en.referralStats.totalIncome, WALLET_COPY.fr.referralStats.totalIncome, "Total Income", "Всего заработано", "総収益"],
+        [WALLET_COPY.zh.referralStats.invites, WALLET_COPY.en.referralStats.invites, WALLET_COPY.fr.referralStats.invites, "Invite", "Invitation", "Приглашения"]
     ];
     const REFERRAL_HIDDEN_STAT_LABELS = [
         WALLET_COPY.zh.referralStats.pending,
         WALLET_COPY.zh.referralStats.totalIncome,
         WALLET_COPY.en.referralStats.pending,
-        WALLET_COPY.en.referralStats.totalIncome
+        WALLET_COPY.en.referralStats.totalIncome,
+        "Total Income",
+        WALLET_COPY.fr.referralStats.pending,
+        WALLET_COPY.fr.referralStats.totalIncome,
+        "Ожидает",
+        "Всего заработано",
+        "保留中",
+        "総収益",
+        "Đang chờ",
+        "Total income"
     ];
+    const TRANSFER_TO_BALANCE_LABELS = ["转移到余额", "Transfer to Balance", "Transférer vers le solde", "Перевести на баланс", "残高への振替", "Chuyển vào số dư"];
+    const PAYMENT_DIALOG_TITLE_LABELS = ["确认付款", "Confirm Payment", "Confirmer le paiement", "Подтвердить оплату", "支払いの確認", "Xác nhận Thanh toán"];
+    const PAYMENT_DIALOG_PAY_LABELS = ["您支付", "You Pay", "Vous payez", "Вы платите", "お支払い額", "Bạn thanh toán"];
+    const PAYMENT_DIALOG_METHOD_LABELS = ["付款方式", "Payment Method", "Méthode de paiement", "Способ оплаты", "チャージ方法", "Phương thức thanh toán"];
+    const PAYMENT_DIALOG_RECHARGE_AMOUNT_LABELS = ["充值金额", "Recharge Amount", "Montant de la recharge", "Сумма пополнения", "チャージ額", "Số tiền nạp"];
     // i18n translations
     const translations = {
         zh: {
@@ -322,6 +353,16 @@
     function normalizeLanguage(value) {
         return readSupportedLanguage(value) || "en";
     }
+    function readRenderedLanguage() {
+        const text = document.body ? document.body.textContent || "" : "";
+        if (!text)
+            return null;
+        if (text.includes("控制台") || text.includes("模型广场") || text.includes("推荐计划") || text.includes("系统公告"))
+            return "zh";
+        if (text.includes("Console") || text.includes("Model Square") || text.includes("Referral Program") || text.includes("System Announcements"))
+            return "en";
+        return null;
+    }
     function readSupportedLanguage(value) {
         if (!value)
             return null;
@@ -333,16 +374,25 @@
     }
     function getNewApiLanguage() {
         try {
-            return normalizeLanguage(localStorage.getItem("i18nextLng") || document.documentElement.lang || navigator.language);
+            return readSupportedLanguage(localStorage.getItem("i18nextLng"))
+                || readSupportedLanguage(document.documentElement.lang)
+                || readRenderedLanguage()
+                || normalizeLanguage(navigator.language);
         }
         catch (err) {
-            return normalizeLanguage(document.documentElement.lang || navigator.language);
+            return readSupportedLanguage(document.documentElement.lang)
+                || readRenderedLanguage()
+                || normalizeLanguage(navigator.language);
         }
     }
     function t(key) { return (translations[currentLang] || translations.en)[key] || translations.en[key] || key; }
     function ht(key) { return (headTranslations[currentLang] || headTranslations.en)[key] || headTranslations.en[key] || ""; }
     function walletCopy() {
-        return currentLang === "zh" ? WALLET_COPY.zh : WALLET_COPY.en;
+        if (currentLang === "zh")
+            return WALLET_COPY.zh;
+        if (currentLang === "fr")
+            return WALLET_COPY.fr;
+        return WALLET_COPY.en;
     }
     function upsertNamedMeta(name, content) {
         if (!document.head || !content)
@@ -859,6 +909,9 @@
 .tokeness-referral-hidden-stat {
   display: none !important;
 }
+.tokeness-referral-transfer-hidden {
+  display: none !important;
+}
 
 .tokeness-home{
   --tokeness-background: var(--background, #f7f6f2);
@@ -1272,6 +1325,7 @@
                 state.isInjected = true;
                 return true;
             }
+            currentLang = getNewApiLanguage();
             mainContainer.classList.add("tokeness-hide-original");
             let wrapper = document.getElementById("tokeness-home-wrapper");
             if (!wrapper) {
@@ -1330,9 +1384,14 @@
         if (!targetNode)
             return;
         state.observer = new MutationObserver(() => {
-            enhanceRechargePage();
-            enhancePaymentDialog();
-            enhanceReferralPlan();
+            if (getNewApiLanguage() !== currentLang) {
+                scheduleLanguageRefresh();
+            }
+            else {
+                enhanceRechargePage();
+                enhancePaymentDialog();
+                enhanceReferralPlan();
+            }
             if (!isHomePage() || !state.isInjected)
                 return;
             const wrapper = document.getElementById("tokeness-home-wrapper");
@@ -1341,7 +1400,6 @@
                 doInject();
                 return;
             }
-            localizeMultilingualContent(document.body);
             const mainContainer = findMainContainer();
             if (mainContainer && !mainContainer.classList.contains("tokeness-hide-original")) {
                 mainContainer.classList.add("tokeness-hide-original");
@@ -1396,6 +1454,9 @@
             return labels.includes(labelText) && row.children.length >= 2;
         }) || null;
     }
+    function stripTextLabels(value, labels) {
+        return labels.reduce((text, label) => text.replace(label, ""), value).trim();
+    }
     function getPaymentDialogMethodName(methodRow) {
         if (!methodRow)
             return "";
@@ -1403,19 +1464,22 @@
             .filter((element) => element.children.length === 0)
             .map((element) => element.textContent.trim())
             .filter(Boolean)
-            .filter((text) => text !== "付款方式" && text !== "Payment Method");
-        return leafTexts[leafTexts.length - 1] || methodRow.textContent.replace(/付款方式|Payment Method/g, "").trim();
+            .filter((text) => !PAYMENT_DIALOG_METHOD_LABELS.includes(text));
+        return leafTexts[leafTexts.length - 1] || stripTextLabels(methodRow.textContent || "", PAYMENT_DIALOG_METHOD_LABELS);
     }
     function enhancePaymentDialog() {
         const dialogs = Array.from(document.querySelectorAll('[class*="alert-dialog-content"], [role="alertdialog"], [role="dialog"]'));
         for (const dialog of dialogs) {
             const dialogText = dialog.textContent || "";
-            if (!dialogText.includes("确认付款") && !dialogText.includes("Confirm Payment"))
+            if (!PAYMENT_DIALOG_TITLE_LABELS.some((label) => dialogText.includes(label)))
                 continue;
-            const payRow = findPaymentDialogRow(dialog, ["您支付", "You Pay"]);
+            const rechargeAmountRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_RECHARGE_AMOUNT_LABELS);
+            if (rechargeAmountRow)
+                rechargeAmountRow.classList.add("tokeness-payment-dialog-hidden-row");
+            const payRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_PAY_LABELS);
             if (!payRow)
                 continue;
-            const methodRow = findPaymentDialogRow(dialog, ["付款方式", "Payment Method"]);
+            const methodRow = findPaymentDialogRow(dialog, PAYMENT_DIALOG_METHOD_LABELS);
             const methodText = getPaymentDialogMethodName(methodRow);
             const isEpay = isEpayPaymentMethodName(methodText);
             payRow.classList.toggle("tokeness-payment-dialog-hidden-row", !isEpay);
@@ -1464,6 +1528,14 @@
     function includesEveryLabelGroup(textContent, labelGroups) {
         return labelGroups.every((labels) => labels.some((label) => textContent.includes(label)));
     }
+    function hideTransferToBalanceButton(cardGrid) {
+        const buttons = Array.from(cardGrid.querySelectorAll("button, a, [role='button']"));
+        for (const button of buttons) {
+            const text = button.textContent ? button.textContent.trim() : "";
+            const shouldHide = TRANSFER_TO_BALANCE_LABELS.some((label) => text === label || text.includes(label));
+            button.classList.toggle("tokeness-referral-transfer-hidden", shouldHide);
+        }
+    }
     function enhanceReferralPlan() {
         const title = findAnyTextElement(REFERRAL_TITLES);
         if (!title)
@@ -1480,6 +1552,7 @@
         const cardGrid = title.closest("[class*='grid']");
         if (!cardGrid)
             return;
+        hideTransferToBalanceButton(cardGrid);
         const statsGrid = Array.from(cardGrid.querySelectorAll("div"))
             .find((element) => includesEveryLabelGroup(element.textContent || "", REFERRAL_STAT_LABEL_GROUPS));
         if (!statsGrid)
