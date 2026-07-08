@@ -1,27 +1,862 @@
-/**
- * Tokeness 首页注入脚本（增强版）
- * 将 newapi-home/home.html 的内容注入到页面中
- */
-(function() {
-  "use strict";
-  
-  if (window.__tokenessHomeInjectInitialized) return;
-  window.__tokenessHomeInjectInitialized = true;
-  
-  const state = {
-    isInjected: false,
-    isProcessing: false,
-    observer: null,
-    debounceTimer: null,
-    retryCount: 0,
-    maxRetries: 5,
-    retryDelay: 500
-  };
-  
-  // CSS 样式
-  const TOKENESS_HOME_STYLE = `
+"use strict";
+(function () {
+    "use strict";
+    if (window.__tokenessHomeInjectInitialized)
+        return;
+    window.__tokenessHomeInjectInitialized = true;
+    const state = {
+        isInjected: false,
+        isProcessing: false,
+        observer: null,
+        debounceTimer: null,
+        retryCount: 0,
+        maxRetries: 5,
+        retryDelay: 500,
+        apiWatcherStarted: false,
+        languageWatcherStarted: false,
+        headWatcherStarted: false,
+        paymentDialogWatcherStarted: false,
+        isLocalizingHead: false,
+        headObserver: null,
+        languageObserver: null,
+        languageRefreshTimer: null
+    };
+    const DEFAULT_CNY_RATE = 7;
+    const WALLET_COPY = {
+        zh: {
+            referralTitle: "推荐计划",
+            referralCopy: "通过邀请链接注册的新用户，首次充值将立返您充值金额的20%，自动到账。",
+            referralStats: {
+                pending: "待确认",
+                totalIncome: "总收入",
+                invites: "邀请"
+            },
+            epayNotice: "付款过后不要关闭页面，需等待自动跳转回本站，以避免延迟到账"
+        },
+        en: {
+            referralTitle: "Referral Program",
+            referralCopy: "New users who register through your invite link will give you 20% of their first top-up back automatically.",
+            referralStats: {
+                pending: "Pending",
+                totalIncome: "Total Income",
+                invites: "Invites"
+            },
+            epayNotice: "Do not close this page after payment. Wait until it redirects back automatically to avoid delayed crediting."
+        }
+    };
+    const REFERRAL_TITLES = [WALLET_COPY.zh.referralTitle, WALLET_COPY.en.referralTitle];
+    const REFERRAL_STAT_LABEL_GROUPS = [
+        [WALLET_COPY.zh.referralStats.pending, WALLET_COPY.en.referralStats.pending],
+        [WALLET_COPY.zh.referralStats.totalIncome, WALLET_COPY.en.referralStats.totalIncome],
+        [WALLET_COPY.zh.referralStats.invites, WALLET_COPY.en.referralStats.invites, "Invite"]
+    ];
+    const REFERRAL_HIDDEN_STAT_LABELS = [
+        WALLET_COPY.zh.referralStats.pending,
+        WALLET_COPY.zh.referralStats.totalIncome,
+        WALLET_COPY.en.referralStats.pending,
+        WALLET_COPY.en.referralStats.totalIncome
+    ];
+    // i18n translations
+    const translations = {
+        zh: {
+            heroKicker: "Route / Control Layer",
+            heroTitle: "一个入口，所有模型",
+            heroCopy: "一个 Key 调所有模型。密钥、额度、路由规则都归 Tokeness 管，请求走哪条路、花了多少钱，直接看后台就行。",
+            btnDashboard: "进入控制台",
+            btnPricing: "查看模型广场",
+            stepsTitle: "接入流程",
+            step1: "建 Key，设好能用哪些模型、额度上限多少。",
+            step2: "配路由，哪个优先、什么时候切备用。",
+            step3: "Key 丢进代码里，OpenAI 协议通用，SDK 不用动。",
+            cardA01Title: "一个 Key 调所有",
+            cardA01Desc: "换模型不用换 Key，省心。",
+            cardA02Title: "额度管得住",
+            cardA02Desc: "按项目分开，花多少剩多少，超了自动停。",
+            cardA03Title: "稳定中转",
+            cardA03Desc: "开发测试生产一条线走，不卡不断。",
+            cardA04Title: "消费看得清",
+            cardA04Desc: "哪个 Key 在烧钱、哪个模型卡了，实时看。",
+            bandLabel: "System Layer",
+            bandTitle: "请求到模型，每一步都有记录",
+            bandCopy: "请求进来，先查 Key 权限和额度，再按路由规则选模型，返回结果。整个过程全留痕，谁调的、花了多少、切了哪个模型，都能查到。",
+            supplierLabel: "30+ 供应商已接入，OpenAI / Claude / Gemini / DeepSeek / Qwen 都有",
+            footerRouteTitle: "路由与控制",
+            footerRoute01: "一个项目一个 Key，模型和额度都限定好，超了直接拦。",
+            footerRoute02: "先验 Key、再查额度、匹配路由、发送。挂了自动重试或切备用。",
+            footerRoute03: "开发测试生产各走各的路，互相不影响。",
+            footerAdaptTitle: "适配与输出",
+            footerAdaptRouting: "按项目、模型、稳定性自动选路。",
+            footerAdaptOutput: "返回格式兼容 OpenAI，代码不用改。",
+            footerAdaptAudit: "谁调的、花了多少、切没切备用，都能查。",
+            footerCopy: "Tokeness，一个 Key 接所有模型，接入快，账目清。",
+            footerModels: "模型广场",
+            footerContact: "联系我们",
+            footerPrivacy: "隐私政策",
+            footerTerms: "用户协议"
+        },
+        en: {
+            heroKicker: "Route / Control Layer",
+            heroTitle: "One Entry, All Models",
+            heroCopy: "One Key for all models. Keys, quotas, routing rules \u2014 all managed by Tokeness. See which path your requests took and how much they cost, right in the dashboard.",
+            btnDashboard: "Go to Dashboard",
+            btnPricing: "View Model Marketplace",
+            stepsTitle: "Integration Steps",
+            step1: "Create a Key, set which models it can use and the quota limit.",
+            step2: "Configure routing \u2014 which path is primary, when to switch to backup.",
+            step3: "Drop the Key into your code \u2014 OpenAI-compatible protocol, no SDK changes needed.",
+            cardA01Title: "One Key for All",
+            cardA01Desc: "Switch models without changing keys. Simple.",
+            cardA02Title: "Quota Control",
+            cardA02Desc: "Per-project budgets \u2014 see spending vs remaining, auto-stop on overage.",
+            cardA03Title: "Stable Relay",
+            cardA03Desc: "Dev, test, production \u2014 one pipeline, no interruptions.",
+            cardA04Title: "Transparent Usage",
+            cardA04Desc: "See which Key is burning tokens, which model is slow \u2014 in real time.",
+            bandLabel: "System Layer",
+            bandTitle: "Every Request, Fully Traced",
+            bandCopy: "Requests come in \u2014 Key permissions and quotas are checked first, then routing rules select a model and return the result. The entire process is logged: who called, how much was spent, which model was used \u2014 all traceable.",
+            supplierLabel: "30+ Providers Connected \u2014 OpenAI / Claude / Gemini / DeepSeek / Qwen and more",
+            footerRouteTitle: "Routing & Control",
+            footerRoute01: "One Key per project \u2014 models and quotas locked in, overage blocked automatically.",
+            footerRoute02: "Key validation \u2192 quota check \u2192 route matching \u2192 send. Auto-retry or failover on errors.",
+            footerRoute03: "Dev, test, and production run on separate paths \u2014 no cross-interference.",
+            footerAdaptTitle: "Compatibility & Output",
+            footerAdaptRouting: "Auto-route by project, model, and stability.",
+            footerAdaptOutput: "OpenAI-compatible output format \u2014 no code changes needed.",
+            footerAdaptAudit: "Full audit trail: caller, cost, failover events \u2014 all queryable.",
+            footerCopy: "Tokeness \u2014 one Key for all models. Fast integration, clear billing.",
+            footerModels: "Model Marketplace",
+            footerContact: "Contact Us",
+            footerPrivacy: "Privacy Policy",
+            footerTerms: "Terms of Service"
+        },
+        fr: {
+            heroKicker: "Route / Control Layer",
+            heroTitle: "Une entree, tous les modeles",
+            heroCopy: "Une seule cle pour tous les modeles. Tokeness gere les cles, les quotas et les regles de routage. Consultez dans le tableau de bord le chemin pris par chaque requete et son cout.",
+            btnDashboard: "Ouvrir le tableau de bord",
+            btnPricing: "Voir la place de marche des modeles",
+            stepsTitle: "Etapes d'integration",
+            step1: "Creez une cle, puis definissez les modeles autorises et la limite de quota.",
+            step2: "Configurez le routage: chemin prioritaire et bascule de secours.",
+            step3: "Ajoutez la cle dans votre code: protocole compatible OpenAI, sans changer de SDK.",
+            cardA01Title: "Une cle pour tout",
+            cardA01Desc: "Changez de modele sans changer de cle.",
+            cardA02Title: "Quotas maitrises",
+            cardA02Desc: "Budgets par projet, arret automatique en cas de depassement.",
+            cardA03Title: "Relais stable",
+            cardA03Desc: "Developpement, test et production sur une meme voie fiable.",
+            cardA04Title: "Usage transparent",
+            cardA04Desc: "Suivez les cles, les couts et les latences en temps reel.",
+            bandLabel: "System Layer",
+            bandTitle: "Chaque requete est tracee de bout en bout",
+            bandCopy: "La requete arrive, les droits et le quota de la cle sont verifies, puis les regles de routage choisissent le modele et renvoient la reponse. Appelant, cout et bascule restent auditables.",
+            supplierLabel: "30+ fournisseurs connectes: OpenAI / Claude / Gemini / DeepSeek / Qwen et plus",
+            footerRouteTitle: "Routage et controle",
+            footerRoute01: "Une cle par projet, avec modeles et quotas verrouilles.",
+            footerRoute02: "Validation de cle, controle du quota, routage, envoi. Reessai ou secours en cas d'erreur.",
+            footerRoute03: "Developpement, test et production restent separes.",
+            footerAdaptTitle: "Compatibilite et sortie",
+            footerAdaptRouting: "Routage automatique par projet, modele et stabilite.",
+            footerAdaptOutput: "Format compatible OpenAI, sans modifier le code.",
+            footerAdaptAudit: "Appelant, cout et bascule sont consultables.",
+            footerCopy: "Tokeness, une cle pour tous les modeles. Integration rapide, facturation claire.",
+            footerModels: "Place de marche des modeles",
+            footerContact: "Nous contacter",
+            footerPrivacy: "Politique de confidentialite",
+            footerTerms: "Conditions d'utilisation"
+        },
+        ru: {
+            heroKicker: "Route / Control Layer",
+            heroTitle: "One Entry, All Models",
+            heroCopy: "One Key for all models. Keys, quotas, routing rules are managed by Tokeness. See each request path and cost in the dashboard.",
+            btnDashboard: "Go to Dashboard",
+            btnPricing: "View Model Marketplace",
+            stepsTitle: "Integration Steps",
+            step1: "Create a Key and set allowed models and quota limits.",
+            step2: "Configure routing: primary path and failover rules.",
+            step3: "Use the Key in your code with the OpenAI-compatible protocol.",
+            cardA01Title: "One Key for All",
+            cardA01Desc: "Switch models without changing keys.",
+            cardA02Title: "Quota Control",
+            cardA02Desc: "Per-project budgets with automatic overage blocking.",
+            cardA03Title: "Stable Relay",
+            cardA03Desc: "One reliable path for dev, test, and production.",
+            cardA04Title: "Transparent Usage",
+            cardA04Desc: "Track keys, costs, and model issues in real time.",
+            bandLabel: "System Layer",
+            bandTitle: "Every request is fully traced",
+            bandCopy: "Tokeness checks key permissions and quota, applies routing rules, selects a model, and returns the response. Caller, cost, and failover events remain auditable.",
+            supplierLabel: "30+ providers connected: OpenAI / Claude / Gemini / DeepSeek / Qwen and more",
+            footerRouteTitle: "Routing & Control",
+            footerRoute01: "One Key per project with locked models and quotas.",
+            footerRoute02: "Key validation, quota check, route matching, send. Auto-retry or failover on errors.",
+            footerRoute03: "Dev, test, and production stay separated.",
+            footerAdaptTitle: "Compatibility & Output",
+            footerAdaptRouting: "Auto-route by project, model, and stability.",
+            footerAdaptOutput: "OpenAI-compatible output format with no code changes.",
+            footerAdaptAudit: "Caller, cost, and failover events are queryable.",
+            footerCopy: "Tokeness: one Key for all models. Fast integration, clear billing.",
+            footerModels: "Model Marketplace",
+            footerContact: "Contact Us",
+            footerPrivacy: "Privacy Policy",
+            footerTerms: "Terms of Service"
+        },
+        ja: {
+            heroKicker: "Route / Control Layer",
+            heroTitle: "One Entry, All Models",
+            heroCopy: "One Key for all models. Keys, quotas, routing rules are managed by Tokeness. See each request path and cost in the dashboard.",
+            btnDashboard: "Go to Dashboard",
+            btnPricing: "View Model Marketplace",
+            stepsTitle: "Integration Steps",
+            step1: "Create a Key and set allowed models and quota limits.",
+            step2: "Configure routing: primary path and failover rules.",
+            step3: "Use the Key in your code with the OpenAI-compatible protocol.",
+            cardA01Title: "One Key for All",
+            cardA01Desc: "Switch models without changing keys.",
+            cardA02Title: "Quota Control",
+            cardA02Desc: "Per-project budgets with automatic overage blocking.",
+            cardA03Title: "Stable Relay",
+            cardA03Desc: "One reliable path for dev, test, and production.",
+            cardA04Title: "Transparent Usage",
+            cardA04Desc: "Track keys, costs, and model issues in real time.",
+            bandLabel: "System Layer",
+            bandTitle: "Every request is fully traced",
+            bandCopy: "Tokeness checks key permissions and quota, applies routing rules, selects a model, and returns the response. Caller, cost, and failover events remain auditable.",
+            supplierLabel: "30+ providers connected: OpenAI / Claude / Gemini / DeepSeek / Qwen and more",
+            footerRouteTitle: "Routing & Control",
+            footerRoute01: "One Key per project with locked models and quotas.",
+            footerRoute02: "Key validation, quota check, route matching, send. Auto-retry or failover on errors.",
+            footerRoute03: "Dev, test, and production stay separated.",
+            footerAdaptTitle: "Compatibility & Output",
+            footerAdaptRouting: "Auto-route by project, model, and stability.",
+            footerAdaptOutput: "OpenAI-compatible output format with no code changes.",
+            footerAdaptAudit: "Caller, cost, and failover events are queryable.",
+            footerCopy: "Tokeness: one Key for all models. Fast integration, clear billing.",
+            footerModels: "Model Marketplace",
+            footerContact: "Contact Us",
+            footerPrivacy: "Privacy Policy",
+            footerTerms: "Terms of Service"
+        },
+        vi: {
+            heroKicker: "Route / Control Layer",
+            heroTitle: "One Entry, All Models",
+            heroCopy: "One Key for all models. Keys, quotas, routing rules are managed by Tokeness. See each request path and cost in the dashboard.",
+            btnDashboard: "Go to Dashboard",
+            btnPricing: "View Model Marketplace",
+            stepsTitle: "Integration Steps",
+            step1: "Create a Key and set allowed models and quota limits.",
+            step2: "Configure routing: primary path and failover rules.",
+            step3: "Use the Key in your code with the OpenAI-compatible protocol.",
+            cardA01Title: "One Key for All",
+            cardA01Desc: "Switch models without changing keys.",
+            cardA02Title: "Quota Control",
+            cardA02Desc: "Per-project budgets with automatic overage blocking.",
+            cardA03Title: "Stable Relay",
+            cardA03Desc: "One reliable path for dev, test, and production.",
+            cardA04Title: "Transparent Usage",
+            cardA04Desc: "Track keys, costs, and model issues in real time.",
+            bandLabel: "System Layer",
+            bandTitle: "Every request is fully traced",
+            bandCopy: "Tokeness checks key permissions and quota, applies routing rules, selects a model, and returns the response. Caller, cost, and failover events remain auditable.",
+            supplierLabel: "30+ providers connected: OpenAI / Claude / Gemini / DeepSeek / Qwen and more",
+            footerRouteTitle: "Routing & Control",
+            footerRoute01: "One Key per project with locked models and quotas.",
+            footerRoute02: "Key validation, quota check, route matching, send. Auto-retry or failover on errors.",
+            footerRoute03: "Dev, test, and production stay separated.",
+            footerAdaptTitle: "Compatibility & Output",
+            footerAdaptRouting: "Auto-route by project, model, and stability.",
+            footerAdaptOutput: "OpenAI-compatible output format with no code changes.",
+            footerAdaptAudit: "Caller, cost, and failover events are queryable.",
+            footerCopy: "Tokeness: one Key for all models. Fast integration, clear billing.",
+            footerModels: "Model Marketplace",
+            footerContact: "Contact Us",
+            footerPrivacy: "Privacy Policy",
+            footerTerms: "Terms of Service"
+        }
+    };
+    const headTranslations = {
+        zh: {
+            title: "Tokeness - 一站式 AI API 接口中转｜全能 API 中转站，一个接口畅连全网主流大模型|开发",
+            metaTitle: "Tokeness - 一站式 AI API 接口中转",
+            metaDescription: "Tokeness一站式AI接口中转，开发者专属全能API中转站，单接口可连通GPT、Claude、DeepSeek等主流大模型。无使用门槛，单密钥通用全系模型，兼容OpenAI接口可无缝对接各类应用，支持自定义密钥时效与额度，仅做数据中转保护隐私，依托渠道优势价格实惠，模型资源丰富、性价比出众。",
+            metaKeywords: "AI API Gateway, API 中转站, LLM API, 全模型AI接口, GPT API, Claude API, OpenAI兼容API, AI接口中转, Tokeness, AI API Hub"
+        },
+        en: {
+            title: "Tokeness - One AI API Gateway for GPT, Claude, DeepSeek and More",
+            metaTitle: "Tokeness - Unified AI API Gateway",
+            metaDescription: "Tokeness is a unified AI API gateway for developers. Use one OpenAI-compatible endpoint and one key to access GPT, Claude, DeepSeek and other mainstream models with quota control, key expiration, privacy-preserving relay, rich model coverage and cost-effective routing.",
+            metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, AI API proxy, Tokeness, AI API Hub"
+        },
+        fr: {
+            title: "Tokeness - Passerelle API IA unifiee pour GPT, Claude, DeepSeek et plus",
+            metaTitle: "Tokeness - Passerelle API IA unifiee",
+            metaDescription: "Tokeness fournit une passerelle API IA unifiee pour les developpeurs: un endpoint compatible OpenAI, une seule cle, controle des quotas, relais respectueux de la confidentialite et acces a GPT, Claude, DeepSeek et d'autres modeles.",
+            metaKeywords: "AI API Gateway, API IA, LLM API, GPT API, Claude API, API compatible OpenAI, Tokeness"
+        },
+        ru: {
+            title: "Tokeness - Unified AI API Gateway for GPT, Claude, DeepSeek and More",
+            metaTitle: "Tokeness - Unified AI API Gateway",
+            metaDescription: "Tokeness provides one OpenAI-compatible AI API gateway and one key for GPT, Claude, DeepSeek and other mainstream models, with quota control, privacy-preserving relay and cost-effective routing.",
+            metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
+        },
+        ja: {
+            title: "Tokeness - GPT、Claude、DeepSeek につながる統合 AI API Gateway",
+            metaTitle: "Tokeness - 統合 AI API Gateway",
+            metaDescription: "Tokeness は OpenAI 互換の単一エンドポイントと単一キーで GPT、Claude、DeepSeek など主要モデルへ接続できる AI API Gateway です。クォータ管理、キー期限、プライバシーを守る中継、低コストなルーティングに対応します。",
+            metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
+        },
+        vi: {
+            title: "Tokeness - Cong AI API thong nhat cho GPT, Claude, DeepSeek va hon the nua",
+            metaTitle: "Tokeness - Cong AI API thong nhat",
+            metaDescription: "Tokeness cung cap mot cong AI API tuong thich OpenAI cho nha phat trien: mot endpoint, mot key, truy cap GPT, Claude, DeepSeek va cac mo hinh pho bien khac voi quan ly quota, thoi han key, relay bao ve rieng tu va dinh tuyen tiet kiem chi phi.",
+            metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
+        }
+    };
+    const SUPPORTED_LANGUAGES = ["zh", "en", "fr", "ru", "ja", "vi"];
+    const localizedTextSources = new WeakMap();
+    const localizedStringSources = new Map();
+    const MAX_LOCALIZED_STRING_SOURCES = 500;
+    const MAX_LOCALIZE_TREE_DEPTH = 80;
+    let currentLang = getNewApiLanguage();
+    function normalizeLanguage(value) {
+        return readSupportedLanguage(value) || "en";
+    }
+    function readSupportedLanguage(value) {
+        if (!value)
+            return null;
+        const normalized = String(value).trim().replace(/_/g, "-").toLowerCase();
+        if (normalized.startsWith("zh"))
+            return "zh";
+        const language = normalized.split("-")[0];
+        return SUPPORTED_LANGUAGES.includes(language) ? language : null;
+    }
+    function getNewApiLanguage() {
+        try {
+            return normalizeLanguage(localStorage.getItem("i18nextLng") || document.documentElement.lang || navigator.language);
+        }
+        catch (err) {
+            return normalizeLanguage(document.documentElement.lang || navigator.language);
+        }
+    }
+    function t(key) { return (translations[currentLang] || translations.en)[key] || translations.en[key] || key; }
+    function ht(key) { return (headTranslations[currentLang] || headTranslations.en)[key] || headTranslations.en[key] || ""; }
+    function walletCopy() {
+        return currentLang === "zh" ? WALLET_COPY.zh : WALLET_COPY.en;
+    }
+    function upsertNamedMeta(name, content) {
+        if (!document.head || !content)
+            return;
+        let meta = document.querySelector(`meta[name="${name}"]`);
+        if (!meta && document.readyState !== "loading") {
+            meta = document.createElement("meta");
+            meta.setAttribute("name", name);
+            document.head.appendChild(meta);
+        }
+        if (meta && meta.getAttribute("content") !== content)
+            meta.setAttribute("content", content);
+    }
+    function updatePropertyMeta(property, content) {
+        if (!document.head || !content)
+            return;
+        const meta = document.querySelector(`meta[property="${property}"]`);
+        if (meta && meta.getAttribute("content") !== content)
+            meta.setAttribute("content", content);
+    }
+    function applyLocalizedHeadContent() {
+        if (!document.head || state.isLocalizingHead)
+            return;
+        state.isLocalizingHead = true;
+        try {
+            const title = ht("title");
+            const description = ht("metaDescription");
+            if (title && document.title !== title)
+                document.title = title;
+            upsertNamedMeta("title", ht("metaTitle"));
+            upsertNamedMeta("description", description);
+            upsertNamedMeta("keywords", ht("metaKeywords"));
+            updatePropertyMeta("og:title", title);
+            updatePropertyMeta("og:description", description);
+            updatePropertyMeta("twitter:title", title);
+            updatePropertyMeta("twitter:description", description);
+        }
+        finally {
+            state.isLocalizingHead = false;
+        }
+    }
+    function watchHeadContent() {
+        if (state.headWatcherStarted || !document.head)
+            return;
+        state.headWatcherStarted = true;
+        state.headObserver = new MutationObserver(() => {
+            if (!state.isLocalizingHead)
+                setTimeout(applyLocalizedHeadContent, 0);
+        });
+        state.headObserver.observe(document.head, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["content"] });
+    }
+    function refreshLanguage() {
+        const nextLang = getNewApiLanguage();
+        if (nextLang === currentLang) {
+            applyLocalizedHeadContent();
+            localizeMultilingualContent(document.body);
+            enhanceRechargePage();
+            enhancePaymentDialog();
+            enhanceReferralPlan();
+            return;
+        }
+        currentLang = nextLang;
+        applyLocalizedHeadContent();
+        const wrapper = document.getElementById("tokeness-home-wrapper");
+        if (wrapper) {
+            wrapper.innerHTML = getTokenessHomeHTML();
+        }
+        localizeMultilingualContent(document.body);
+        enhanceRechargePage();
+        enhancePaymentDialog();
+        enhanceReferralPlan();
+    }
+    function scheduleLanguageRefresh() {
+        if (state.languageRefreshTimer)
+            clearTimeout(state.languageRefreshTimer);
+        state.languageRefreshTimer = setTimeout(() => {
+            state.languageRefreshTimer = null;
+            refreshLanguage();
+        }, 50);
+    }
+    function pickLocalizedValue(value) {
+        if (!value || typeof value !== "object" || Array.isArray(value))
+            return null;
+        return value[currentLang] || value[normalizeLanguage(currentLang)] || value.en || value.zh || null;
+    }
+    function decodeXmlEntities(value) {
+        return String(value)
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&amp;/g, "&");
+    }
+    function unwrapCdata(value) {
+        const match = String(value).match(/^\s*<!\[CDATA\[([\s\S]*)\]\]>\s*$/);
+        return match ? match[1] : value;
+    }
+    function readTokenessTextValues(text) {
+        const values = {};
+        const pattern = /<tokeness-text\b([^>]*)>([\s\S]*?)<\/tokeness-text>/gi;
+        let match = pattern.exec(String(text));
+        while (match) {
+            const langMatch = match[1].match(/\blang\s*=\s*["']?([^"'\s>]+)["']?/i);
+            if (langMatch) {
+                values[normalizeLanguage(langMatch[1])] = decodeXmlEntities(unwrapCdata(match[2])).trim();
+            }
+            match = pattern.exec(String(text));
+        }
+        return values;
+    }
+    function registerLocalizedStringSource(sourceText) {
+        const values = readTokenessTextValues(sourceText);
+        for (const value of Object.values(values)) {
+            if (typeof value === "string" && value.trim()) {
+                rememberLocalizedStringSource(value.trim(), sourceText);
+            }
+        }
+    }
+    function rememberLocalizedStringSource(value, sourceText) {
+        if (!localizedStringSources.has(value) && localizedStringSources.size >= MAX_LOCALIZED_STRING_SOURCES) {
+            const oldestKey = localizedStringSources.keys().next().value;
+            if (typeof oldestKey === "string")
+                localizedStringSources.delete(oldestKey);
+        }
+        localizedStringSources.set(value, sourceText);
+    }
+    function parseLocalizedXmlText(text) {
+        if (!text)
+            return null;
+        const values = readTokenessTextValues(text);
+        if (Object.keys(values).length > 0) {
+            registerLocalizedStringSource(text);
+            return pickLocalizedValue(values);
+        }
+        return null;
+    }
+    function parseLocalizedText(text) {
+        const trimmed = text.trim();
+        if (!trimmed)
+            return null;
+        const xmlValue = parseLocalizedXmlText(trimmed);
+        if (typeof xmlValue === "string")
+            return xmlValue;
+        if (trimmed[0] !== "{")
+            return null;
+        try {
+            const parsed = JSON.parse(trimmed);
+            return pickLocalizedValue(parsed);
+        }
+        catch (err) {
+            return null;
+        }
+    }
+    function isLocalizedObject(value) {
+        if (!value || typeof value !== "object" || Array.isArray(value))
+            return false;
+        const keys = Object.keys(value);
+        return keys.length > 0
+            && keys.every((key) => readSupportedLanguage(key))
+            && Object.values(value).every((childValue) => typeof childValue === "string");
+    }
+    function localizeValue(value) {
+        if (!value)
+            return value;
+        if (isLocalizedObject(value))
+            return pickLocalizedValue(value) || value;
+        if (typeof value === "string")
+            return parseLocalizedText(localizedStringSources.get(value.trim()) || value) || value;
+        return value;
+    }
+    function localizeTree(value, depth = 0) {
+        const localized = localizeValue(value);
+        if (localized !== value)
+            return localized;
+        if (depth >= MAX_LOCALIZE_TREE_DEPTH)
+            return value;
+        if (Array.isArray(value))
+            return value.map((childValue) => localizeTree(childValue, depth + 1));
+        if (!value || typeof value !== "object")
+            return value;
+        const nextValue = {};
+        for (const [key, childValue] of Object.entries(value)) {
+            nextValue[key] = localizeTree(childValue, depth + 1);
+        }
+        return nextValue;
+    }
+    function isLocalizableApiUrl(url) {
+        if (!url)
+            return false;
+        try {
+            const parsed = new URL(url, window.location.origin);
+            return parsed.pathname.startsWith("/api/");
+        }
+        catch (err) {
+            return String(url).includes("/api/");
+        }
+    }
+    function localizeApiPayload(url, payload) {
+        return localizeTree(payload);
+    }
+    function localizeApiResponseText(url, text) {
+        if (!isLocalizableApiUrl(url) || !text)
+            return text;
+        try {
+            return JSON.stringify(localizeApiPayload(url, JSON.parse(text)));
+        }
+        catch (err) {
+            return text;
+        }
+    }
+    function getFetchRequestUrl(input) {
+        if (typeof input === "string")
+            return input;
+        if (typeof URL === "function" && input instanceof URL)
+            return input.href;
+        if (input && typeof input === "object" && typeof input.url === "string")
+            return input.url;
+        return input ? String(input) : "";
+    }
+    function resetLocalizedXhrResponse(xhr) {
+        xhr.__tokenessApiLocalized = false;
+        for (const propertyName of ["responseText", "response"]) {
+            const descriptor = Object.getOwnPropertyDescriptor(xhr, propertyName);
+            if (descriptor && descriptor.configurable)
+                delete xhr[propertyName];
+        }
+    }
+    function applyLocalizedXhrResponse(xhr) {
+        if (!isLocalizableApiUrl(xhr.__tokenessApiUrl) || xhr.__tokenessApiLocalized)
+            return;
+        if (xhr.responseType === "json") {
+            if (xhr.__tokenessApiUrl.includes("/api/status") && xhr.response && xhr.response.data) {
+                cachedStatus = xhr.response.data;
+                if (typeof enhanceRechargePage === "function")
+                    enhanceRechargePage();
+            }
+            const localizedPayload = localizeApiPayload(xhr.__tokenessApiUrl, xhr.response);
+            if (localizedPayload === xhr.response)
+                return;
+            Object.defineProperty(xhr, "response", { configurable: true, get: () => localizedPayload });
+            xhr.__tokenessApiLocalized = true;
+            return;
+        }
+        if (xhr.responseType && xhr.responseType !== "text")
+            return;
+        const text = xhr.responseText || "";
+        if (xhr.__tokenessApiUrl.includes("/api/status") && text) {
+            try {
+                const parsed = JSON.parse(text);
+                if (parsed.data) {
+                    cachedStatus = parsed.data;
+                    if (typeof enhanceRechargePage === "function")
+                        enhanceRechargePage();
+                }
+            }
+            catch (e) { }
+        }
+        if (xhr.__tokenessApiUrl.includes("/api/user/topup/info") && text) {
+            try {
+                cacheTopupInfoPayload(JSON.parse(text));
+            }
+            catch (e) { }
+        }
+        const localizedText = localizeApiResponseText(xhr.__tokenessApiUrl, text);
+        if (!localizedText || localizedText === text)
+            return;
+        Object.defineProperty(xhr, "responseText", { configurable: true, get: () => localizedText });
+        Object.defineProperty(xhr, "response", { configurable: true, get: () => localizedText });
+        xhr.__tokenessApiLocalized = true;
+    }
+    let cachedStatus = null;
+    let cachedTopupInfo = null;
+    function getExchangeRate() {
+        const price = cachedStatus && cachedStatus.price != null
+            ? cachedStatus.price
+            : cachedStatus && cachedStatus.usd_exchange_rate != null
+                ? cachedStatus.usd_exchange_rate
+                : DEFAULT_CNY_RATE;
+        const numericPrice = Number(price);
+        return Number.isFinite(numericPrice) ? numericPrice : DEFAULT_CNY_RATE;
+    }
+    function usesChineseRechargeText(customAmountInput) {
+        const section = customAmountInput && (customAmountInput.closest("form") || customAmountInput.closest("main") || customAmountInput.parentElement);
+        const pageText = section ? section.textContent || "" : "";
+        return currentLang === "zh" || pageText.includes("待支付金额") || pageText.includes("付款方式") || pageText.includes("推荐计划");
+    }
+    function cacheTopupInfoPayload(payload) {
+        if (payload && payload.data && Array.isArray(payload.data.pay_methods)) {
+            cachedTopupInfo = payload.data;
+            if (typeof enhancePaymentDialog === "function")
+                enhancePaymentDialog();
+        }
+    }
+    function normalizePaymentText(value) {
+        return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+    function isEpayMethodType(type) {
+        const value = normalizePaymentText(type);
+        return value !== "" && value !== "stripe" && value !== "waffo_pancake" && value !== "creem";
+    }
+    function isEpayPaymentMethodName(methodName) {
+        const name = normalizePaymentText(methodName);
+        const methods = cachedTopupInfo && Array.isArray(cachedTopupInfo.pay_methods)
+            ? cachedTopupInfo.pay_methods
+            : [];
+        const matched = methods.find((method) => normalizePaymentText(method && method.name) === name);
+        if (matched)
+            return isEpayMethodType(matched.type);
+        return /epay|alipay|wxpay|易支付|支付宝|微信/.test(name);
+    }
+    function watchAnnouncementApis() {
+        if (state.apiWatcherStarted)
+            return;
+        state.apiWatcherStarted = true;
+        const originalFetch = window.fetch;
+        if (typeof originalFetch === "function") {
+            window.fetch = function (input, init) {
+                const requestUrl = getFetchRequestUrl(input);
+                return originalFetch.call(this, input, init).then((response) => {
+                    if (!isLocalizableApiUrl(requestUrl))
+                        return response;
+                    return response.clone().text().then((text) => {
+                        if (requestUrl.includes("/api/status")) {
+                            try {
+                                const parsed = JSON.parse(text);
+                                if (parsed.data) {
+                                    cachedStatus = parsed.data;
+                                    if (typeof enhanceRechargePage === "function")
+                                        enhanceRechargePage();
+                                }
+                            }
+                            catch (e) { }
+                        }
+                        if (requestUrl.includes("/api/user/topup/info")) {
+                            try {
+                                cacheTopupInfoPayload(JSON.parse(text));
+                            }
+                            catch (e) { }
+                        }
+                        const localizedText = localizeApiResponseText(requestUrl, text);
+                        if (localizedText === text)
+                            return response;
+                        const headers = new Headers(response.headers);
+                        headers.delete("content-length");
+                        return new Response(localizedText, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            headers
+                        });
+                    }).catch(() => response);
+                });
+            };
+        }
+        const originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url, async = true, username, password) {
+            this.__tokenessApiUrl = String(url);
+            resetLocalizedXhrResponse(this);
+            if (!this.__tokenessApiLocalizationAttached) {
+                this.__tokenessApiLocalizationAttached = true;
+                this.addEventListener("readystatechange", function () {
+                    if (this.readyState === 4)
+                        applyLocalizedXhrResponse(this);
+                });
+                this.addEventListener("load", function () {
+                    applyLocalizedXhrResponse(this);
+                });
+            }
+            return originalOpen.call(this, method, url, async, username, password);
+        };
+    }
+    function localizeMultilingualContent(root) {
+        if (!root)
+            return;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        let node = walker.nextNode();
+        while (node) {
+            nodes.push(node);
+            node = walker.nextNode();
+        }
+        for (const textNode of nodes) {
+            const nodeText = textNode.nodeValue || "";
+            const sourceText = localizedTextSources.get(textNode) || localizedStringSources.get(nodeText.trim()) || nodeText;
+            const localized = parseLocalizedText(sourceText);
+            if (typeof localized === "string" && localized.trim()) {
+                localizedTextSources.set(textNode, sourceText);
+                textNode.nodeValue = localized;
+            }
+        }
+    }
+    function watchNewApiLanguage() {
+        if (state.languageWatcherStarted)
+            return;
+        state.languageWatcherStarted = true;
+        const originalSetItem = localStorage.setItem;
+        localStorage.setItem = function (key, value) {
+            originalSetItem.call(this, key, value);
+            if (key === "i18nextLng") {
+                setTimeout(refreshLanguage, 0);
+            }
+        };
+        window.addEventListener("storage", (event) => {
+            if (event.key === "i18nextLng")
+                refreshLanguage();
+        });
+        const observeLanguageRoot = () => {
+            const root = document.documentElement;
+            if (!root || root.nodeType !== 1)
+                return;
+            if (state.languageObserver)
+                return;
+            state.languageObserver = new MutationObserver(scheduleLanguageRefresh);
+            state.languageObserver.observe(root, {
+                attributes: true,
+                attributeFilter: ["lang"]
+            });
+        };
+        observeLanguageRoot();
+        if (!document.documentElement || document.documentElement.nodeType !== 1) {
+            document.addEventListener("DOMContentLoaded", observeLanguageRoot, { once: true });
+        }
+    }
+    // CSS 样式
+    const TOKENESS_HOME_STYLE = `
 /* Hide original main content */
 .tokeness-hide-original > *:not(#tokeness-home-wrapper):nth-child(n+3):nth-last-child(n+2) {
+  display: none !important;
+}
+
+.tokeness-recharge-note {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tokeness-foreground, var(--foreground, #151515));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-height: 36px;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+.tokeness-recharge-note svg {
+  display: none;
+}
+
+.tokeness-recharge-row {
+  position: relative;
+}
+.tokeness-recharge-row::after {
+  content: attr(data-tokeness-recharge-note);
+  color: var(--tokeness-foreground, var(--foreground, #151515));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  justify-self: center;
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 36px;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tokeness-payable-amount-target {
+  position: relative;
+  display: inline-flex !important;
+  justify-content: flex-end;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  min-width: max(4em, 100%);
+}
+.tokeness-payable-amount-target::after {
+  content: attr(data-tokeness-payable-text);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--tokeness-foreground, var(--foreground, #151515));
+  -webkit-text-fill-color: var(--tokeness-foreground, var(--foreground, #151515));
+  white-space: nowrap;
+}
+.tokeness-payment-dialog-hidden-row {
+  display: none !important;
+}
+.tokeness-payment-dialog-epay-notice-row {
+  display: block !important;
+  border: 1px solid var(--tokeness-border, var(--border, #d8d5cc));
+  border-radius: 8px;
+  background: var(--tokeness-card, var(--card, #ffffff));
+  padding: 10px 12px;
+}
+.tokeness-payment-dialog-epay-notice-row > * {
+  display: none !important;
+}
+.tokeness-payment-dialog-epay-notice-row::after {
+  content: attr(data-tokeness-epay-notice);
+  display: block;
+  color: var(--tokeness-foreground, var(--foreground, #151515));
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.tokeness-referral-copy {
+  display: block !important;
+  -webkit-line-clamp: initial !important;
+  overflow: visible !important;
+  white-space: normal !important;
+}
+.tokeness-referral-stats {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.tokeness-referral-hidden-stat {
   display: none !important;
 }
 
@@ -265,47 +1100,47 @@
   .tokeness-btn{width:100%}
   .tokeness-provider-tile{width:40px;height:40px}
   .tokeness-provider-tile svg{width:28px;height:28px}
-  .tokeness-provider-more{font-size:24px}
-}
+   .tokeness-provider-more{font-size:24px}
+  }
 `;
-  
-  // HTML 内容
-  const TOKENESS_HOME_HTML = `<section class="tokeness-home">
+    // HTML 内容
+    function getTokenessHomeHTML() {
+        return `<section class="tokeness-home">
   <div class="tokeness-shell">
     <div class="tokeness-top-spacer" aria-hidden="true"></div>
     <section class="tokeness-hero">
       <div class="tokeness-hero-main">
-        <div class="tokeness-system-mark">Route / Control Layer</div>
-        <h1 class="tokeness-hero-title">一个入口，所有模型</h1>
+        <div class="tokeness-system-mark">${t('heroKicker')}</div>
+        <h1 class="tokeness-hero-title">${t('heroTitle')}</h1>
         <p class="tokeness-hero-copy">
-          一个 Key 调所有模型。密钥、额度、路由规则都归 Tokeness 管，请求走哪条路、花了多少钱，直接看后台就行。
+          ${t('heroCopy')}
         </p>
         <div class="tokeness-actions">
-          <a class="tokeness-btn primary" href="/dashboard">进入控制台</a>
-          <a class="tokeness-btn secondary" href="/pricing">查看模型广场</a>
+          <a class="tokeness-btn primary" href="/dashboard">${t('btnDashboard')}</a>
+          <a class="tokeness-btn secondary" href="/pricing">${t('btnPricing')}</a>
         </div>
       </div>
       <aside class="tokeness-hero-side">
-        <p class="tokeness-side-title">接入流程</p>
+        <p class="tokeness-side-title">${t('stepsTitle')}</p>
         <div class="tokeness-steps">
-          <div class="tokeness-step"><span class="tokeness-step-num">1</span><span>建 Key，设好能用哪些模型、额度上限多少。</span></div>
-          <div class="tokeness-step"><span class="tokeness-step-num">2</span><span>配路由，哪个优先、什么时候切备用。</span></div>
-          <div class="tokeness-step"><span class="tokeness-step-num">3</span><span>Key 丢进代码里，OpenAI 协议通用，SDK 不用动。</span></div>
+          <div class="tokeness-step"><span class="tokeness-step-num">1</span><span>${t('step1')}</span></div>
+          <div class="tokeness-step"><span class="tokeness-step-num">2</span><span>${t('step2')}</span></div>
+          <div class="tokeness-step"><span class="tokeness-step-num">3</span><span>${t('step3')}</span></div>
         </div>
       </aside>
     </section>
     <section class="tokeness-structure">
-      <div class="tokeness-card" data-index="A01"><strong>一个 Key 调所有</strong><span>换模型不用换 Key，省心。</span></div>
-      <div class="tokeness-card" data-index="A02"><strong>额度管得住</strong><span>按项目分开，花多少剩多少，超了自动停。</span></div>
-      <div class="tokeness-card" data-index="A03"><strong>稳定中转</strong><span>开发测试生产一条线走，不卡不断。</span></div>
-      <div class="tokeness-card" data-index="A04"><strong>消费看得清</strong><span>哪个 Key 在烧钱、哪个模型卡了，实时看。</span></div>
+      <div class="tokeness-card" data-index="A01"><strong>${t('cardA01Title')}</strong><span>${t('cardA01Desc')}</span></div>
+      <div class="tokeness-card" data-index="A02"><strong>${t('cardA02Title')}</strong><span>${t('cardA02Desc')}</span></div>
+      <div class="tokeness-card" data-index="A03"><strong>${t('cardA03Title')}</strong><span>${t('cardA03Desc')}</span></div>
+      <div class="tokeness-card" data-index="A04"><strong>${t('cardA04Title')}</strong><span>${t('cardA04Desc')}</span></div>
     </section>
     <section class="tokeness-band">
       <div class="tokeness-band-text">
-        <div class="tokeness-band-label">System Layer</div>
-        <h2 class="tokeness-band-title">请求到模型，每一步都有记录</h2>
+        <div class="tokeness-band-label">${t('bandLabel')}</div>
+        <h2 class="tokeness-band-title">${t('bandTitle')}</h2>
         <p class="tokeness-band-copy">
-          请求进来，先查 Key 权限和额度，再按路由规则选模型，返回结果。整个过程全留痕，谁调的、花了多少、切了哪个模型，都能查到。
+          ${t('bandCopy')}
         </p>
       </div>
       <div class="tokeness-band-stats">
@@ -315,7 +1150,7 @@
       </div>
     </section>
     <section class="tokeness-block tokeness-supplier">
-      <div class="tokeness-gridline-row"><span>30+ 供应商已接入，OpenAI / Claude / Gemini / DeepSeek / Qwen 都有</span></div>
+      <div class="tokeness-gridline-row"><span>${t('supplierLabel')}</span></div>
       <div class="tokeness-provider-matrix">
         <div class="tokeness-provider-tile"><svg fill="currentColor" fill-rule="evenodd" height="40" viewBox="0 0 24 24" width="40" xmlns="http://www.w3.org/2000/svg" style="flex: 0 0 auto; line-height: 1;"><title>MoonshotAI</title><path d="M1.052 16.916l9.539 2.552a21.007 21.007 0 00.06 2.033l5.956 1.593a11.997 11.997 0 01-5.586.865l-.18-.016-.044-.004-.084-.009-.094-.01a11.605 11.605 0 01-.157-.02l-.107-.014-.11-.016a11.962 11.962 0 01-.32-.051l-.042-.008-.075-.013-.107-.02-.07-.015-.093-.019-.075-.016-.095-.02-.097-.023-.094-.022-.068-.017-.088-.022-.09-.024-.095-.025-.082-.023-.109-.03-.062-.02-.084-.025-.093-.028-.105-.034-.058-.019-.08-.026-.09-.031-.066-.024a6.293 6.293 0 01-.044-.015l-.068-.025-.101-.037-.057-.022-.08-.03-.087-.035-.088-.035-.079-.032-.095-.04-.063-.028-.063-.027a5.655 5.655 0 01-.041-.018l-.066-.03-.103-.047-.052-.024-.096-.046-.062-.03-.084-.04-.086-.044-.093-.047-.052-.027-.103-.055-.057-.03-.058-.032a6.49 6.49 0 01-.046-.026l-.094-.053-.06-.034-.051-.03-.072-.041-.082-.05-.093-.056-.052-.032-.084-.053-.061-.039-.079-.05-.07-.047-.053-.035a7.785 7.785 0 01-.054-.036l-.044-.03-.044-.03a6.066 6.066 0 01-.04-.028l-.057-.04-.076-.054-.069-.05-.074-.054-.056-.042-.076-.057-.076-.059-.086-.067-.045-.035-.064-.052-.074-.06-.089-.073-.046-.039-.046-.039a7.516 7.516 0 01-.043-.037l-.045-.04-.061-.053-.07-.062-.068-.06-.062-.058-.067-.062-.053-.05-.088-.084a13.28 13.28 0 01-.099-.097l-.029-.028-.041-.042-.069-.07-.05-.051-.05-.053a6.457 6.457 0 01-.168-.179l-.08-.088-.062-.07-.071-.08-.042-.049-.053-.062-.058-.068-.046-.056a7.175 7.175 0 01-.027-.033l-.045-.055-.066-.082-.041-.052-.05-.064-.02-.025a11.99 11.99 0 01-1.44-2.402zm-1.02-5.794l11.353 3.037a20.468 20.468 0 00-.469 2.011l10.817 2.894a12.076 12.076 0 01-1.845 2.005L.657 15.923l-.016-.046-.035-.104a11.965 11.965 0 01-.05-.153l-.007-.023a11.896 11.896 0 01-.207-.741l-.03-.126-.018-.08-.021-.097-.018-.081-.018-.09-.017-.084-.018-.094c-.026-.141-.05-.283-.071-.426l-.017-.118-.011-.083-.013-.102a12.01 12.01 0 01-.019-.161l-.005-.047a12.12 12.12 0 01-.034-2.145zm1.593-5.15l11.948 3.196c-.368.605-.705 1.231-1.01 1.875l11.295 3.022c-.142.82-.368 1.612-.668 2.365l-11.55-3.09L.124 10.26l.015-.1.008-.049.01-.067.015-.087.018-.098c.026-.148.056-.295.088-.442l.028-.124.02-.085.024-.097c.022-.09.045-.18.07-.268l.028-.102.023-.083.03-.1.025-.082.03-.096.026-.082.031-.095a11.896 11.896 0 011.01-2.232zm4.442-4.4L17.352 4.59a20.77 20.77 0 00-1.688 1.721l7.823 2.093c.267.852.442 1.744.513 2.665L2.106 5.213l.045-.065.027-.04.04-.055.046-.065.055-.076.054-.072.064-.086.05-.065.057-.073.055-.07.06-.074.055-.069.065-.077.054-.066.066-.077.053-.06.072-.082.053-.06.067-.074.054-.058.073-.078.058-.06.063-.067.168-.17.1-.098.059-.056.076-.071a12.084 12.084 0 012.272-1.677zM12.017 0h.097l.082.001.069.001.054.002.068.002.046.001.076.003.047.002.06.003.054.002.087.005.105.007.144.011.088.007.044.004.077.008.082.008.047.005.102.012.05.006.108.014.081.01.042.006.065.01.207.032.07.012.065.011.14.026.092.018.11.022.046.01.075.016.041.01L14.7.3l.042.01.065.015.049.012.071.017.096.024.112.03.113.03.113.032.05.015.07.02.078.024.073.023.05.016.05.016.076.025.099.033.102.036.048.017.064.023.093.034.11.041.116.045.1.04.047.02.06.024.041.018.063.026.04.018.057.025.11.048.1.046.074.035.075.036.06.028.092.046.091.045.102.052.053.028.049.026.046.024.06.033.041.022.052.029.088.05.106.06.087.051.057.034.053.032.096.059.088.055.098.062.036.024.064.041.084.056.04.027.062.042.062.043.023.017c.054.037.108.075.161.114l.083.06.065.048.056.043.086.065.082.064.04.03.05.041.086.069.079.065.085.071c.712.6 1.353 1.283 1.909 2.031L7.222.994l.062-.027.065-.028.081-.034.086-.035c.113-.045.227-.09.341-.131l.096-.035.093-.033.084-.03.096-.031c.087-.03.176-.058.264-.085l.091-.027.086-.025.102-.03.085-.023.1-.026L9.04.37l.09-.023.091-.022.095-.022.09-.02.098-.021.091-.02.095-.018.092-.018.1-.018.091-.016.098-.017.092-.014.097-.015.092-.013.102-.013.091-.012.105-.012.09-.01.105-.01c.093-.01.186-.018.28-.024l.106-.008.09-.005.11-.006.093-.004.1-.004.097-.002.099-.002.197-.002z"></path></svg></div>
         <div class="tokeness-provider-tile"><svg fill="currentColor" fill-rule="evenodd" height="40" viewBox="0 0 24 24" width="40" xmlns="http://www.w3.org/2000/svg" style="flex: 0 0 auto; line-height: 1;"><title>OpenAI</title><path d="M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z"></path></svg></div>
@@ -342,20 +1177,20 @@
     </section>
     <section class="tokeness-footer">
       <div class="tokeness-block">
-        <p class="tokeness-block-title">路由与控制</p>
+        <p class="tokeness-block-title">${t('footerRouteTitle')}</p>
         <div class="tokeness-list">
-          <div class="tokeness-list-item"><i>01</i><span>一个项目一个 Key，模型和额度都限定好，超了直接拦。</span></div>
-          <div class="tokeness-list-item"><i>02</i><span>先验 Key、再查额度、匹配路由、发送。挂了自动重试或切备用。</span></div>
-          <div class="tokeness-list-item"><i>03</i><span>开发测试生产各走各的路，互相不影响。</span></div>
+          <div class="tokeness-list-item"><i>01</i><span>${t('footerRoute01')}</span></div>
+          <div class="tokeness-list-item"><i>02</i><span>${t('footerRoute02')}</span></div>
+          <div class="tokeness-list-item"><i>03</i><span>${t('footerRoute03')}</span></div>
         </div>
       </div>
       <div class="tokeness-block">
-        <p class="tokeness-block-title">适配与输出</p>
+        <p class="tokeness-block-title">${t('footerAdaptTitle')}</p>
         <div class="tokeness-spec-table">
           <div class="tokeness-spec-row"><span>SDK</span><strong>OpenAI / Claude / Gemini / Qwen</strong></div>
-          <div class="tokeness-spec-row"><span>Routing</span><strong>按项目、模型、稳定性自动选路。</strong></div>
-          <div class="tokeness-spec-row"><span>Output</span><strong>返回格式兼容 OpenAI，代码不用改。</strong></div>
-          <div class="tokeness-spec-row"><span>Audit</span><strong>谁调的、花了多少、切没切备用，都能查。</strong></div>
+          <div class="tokeness-spec-row"><span>Routing</span><strong>${t('footerAdaptRouting')}</strong></div>
+          <div class="tokeness-spec-row"><span>Output</span><strong>${t('footerAdaptOutput')}</strong></div>
+          <div class="tokeness-spec-row"><span>Audit</span><strong>${t('footerAdaptAudit')}</strong></div>
         </div>
       </div>
     </section>
@@ -363,12 +1198,12 @@
       <div class="tokeness-site-footer-main">
         <div class="tokeness-footer-brand">Tokeness</div>
         <p class="tokeness-footer-copy">
-          Tokeness，一个 Key 接所有模型，接入快，账目清。
+          ${t('footerCopy')}
         </p>
         <p class="tokeness-footer-copyright">© 2026 Tokeness. All rights reserved.</p>
         <nav class="tokeness-footer-nav" aria-label="Tokeness footer navigation">
-          <a class="tokeness-footer-link" href="/pricing">模型广场</a>
-          <a class="tokeness-footer-link" href="mailto:contact@tokeness.io">联系我们</a>
+          <a class="tokeness-footer-link" href="/pricing">${t('footerModels')}</a>
+          <a class="tokeness-footer-link" href="mailto:contact@tokeness.io">${t('footerContact')}</a>
         </nav>
       </div>
       <div class="tokeness-footer-right">
@@ -376,197 +1211,395 @@
           <img src="https://lmspeed.net/api/provider/claim-badge/1278?claim=1278--EDVRn1QWCO5Q_Feyad9cpuqsjUZVIb3" alt="Verified on LM Speed">
         </a>
         <nav class="tokeness-footer-legal" aria-label="Legal links">
-          <a class="tokeness-footer-link" href="/privacy-policy">隐私政策</a>
-          <a class="tokeness-footer-link" href="/user-agreement">用户协议</a>
+          <a class="tokeness-footer-link" href="/privacy-policy">${t('footerPrivacy')}</a>
+          <a class="tokeness-footer-link" href="/user-agreement">${t('footerTerms')}</a>
         </nav>
       </div>
     </footer>
   </div>
 </section>`;
-  
-  function log(msg, type = "info") {
-    const prefix = "[Tokeness]";
-    const styles = {
-      info: "color: #d7192a; font-weight: bold;",
-      warn: "color: #ff9800; font-weight: bold;",
-      error: "color: #f44336; font-weight: bold;",
-      success: "color: #4caf50; font-weight: bold;"
-    };
-    console.log(`%c${prefix} ${msg}`, styles[type] || styles.info);
-  }
-  
-  function debounce(fn, delay) {
-    return function(...args) {
-      clearTimeout(state.debounceTimer);
-      state.debounceTimer = setTimeout(() => fn.apply(this, args), delay);
-    };
-  }
-  
-  function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-  
-  function injectStyles() {
-    try {
-      if (document.getElementById("tokeness-home-style")) return;
-      const styleEl = document.createElement("style");
-      styleEl.id = "tokeness-home-style";
-      styleEl.textContent = TOKENESS_HOME_STYLE;
-      document.head.appendChild(styleEl);
-      log("Styles injected", "success");
-    } catch (err) {
-      log(`Failed to inject styles: ${err.message}`, "error");
     }
-  }
-  
-  function isHomePage() {
-    const path = window.location.pathname;
-    return path === "/" || path === "/index" || path === "/index.html";
-  }
-  
-  function findMainContainer() {
-    return document.querySelector(".bg-background.text-foreground");
-  }
-  
-  function doInject() {
-    try {
-      const mainContainer = findMainContainer();
-      if (!mainContainer) return false;
-      
-      if (document.getElementById("tokeness-home-wrapper") && mainContainer.classList.contains("tokeness-hide-original")) {
-        state.isInjected = true;
-        return true;
-      }
-      
-      mainContainer.classList.add("tokeness-hide-original");
-      
-      let wrapper = document.getElementById("tokeness-home-wrapper");
-      if (!wrapper) {
-        wrapper = document.createElement("div");
-        wrapper.id = "tokeness-home-wrapper";
-        const headerAfter = mainContainer.children[2];
-        mainContainer.insertBefore(wrapper, headerAfter || null);
-      }
-      
-      wrapper.innerHTML = TOKENESS_HOME_HTML;
-      state.isInjected = true;
-      log("Content injected", "success");
-      return true;
-    } catch (err) {
-      log(`Inject failed: ${err.message}`, "error");
-      return false;
+    function log(msg, type = "info") {
+        const prefix = "[Tokeness]";
+        const styles = {
+            info: "color: #d7192a; font-weight: bold;",
+            warn: "color: #ff9800; font-weight: bold;",
+            error: "color: #f44336; font-weight: bold;",
+            success: "color: #4caf50; font-weight: bold;"
+        };
+        console.log(`%c${prefix} ${msg}`, styles[type] || styles.info);
     }
-  }
-  
-  async function injectWithRetry() {
-    if (state.isProcessing) return;
-    state.isProcessing = true;
-    state.retryCount = 0;
-    
-    while (state.retryCount < state.maxRetries) {
-      if (doInject()) break;
-      state.retryCount++;
-      log(`Retry ${state.retryCount}/${state.maxRetries}...`, "warn");
-      await delay(state.retryDelay);
+    function debounce(fn, delay) {
+        return function (...args) {
+            if (state.debounceTimer !== null)
+                clearTimeout(state.debounceTimer);
+            state.debounceTimer = setTimeout(() => fn.apply(this, args), delay);
+        };
     }
-    
-    state.isProcessing = false;
-  }
-  
-  function cleanup() {
-    try {
-      const wrapper = document.getElementById("tokeness-home-wrapper");
-      if (wrapper) wrapper.remove();
-      
-      const mainContainer = findMainContainer();
-      if (mainContainer) mainContainer.classList.remove("tokeness-hide-original");
-      
-      if (state.observer) {
-        state.observer.disconnect();
-        state.observer = null;
-      }
-      
-      state.isInjected = false;
-      log("Cleanup completed", "success");
-    } catch (err) {
-      log(`Cleanup failed: ${err.message}`, "error");
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
-  }
-  
-  function startObserver() {
-    if (state.observer) state.observer.disconnect();
-    
-    const targetNode = document.body;
-    if (!targetNode) return;
-    
-    state.observer = new MutationObserver(() => {
-      if (!isHomePage() || !state.isInjected) return;
-      
-      const wrapper = document.getElementById("tokeness-home-wrapper");
-      if (!wrapper) {
-        log("Wrapper removed, re-injecting", "warn");
-        doInject();
-        return;
-      }
-      
-      const mainContainer = findMainContainer();
-      if (mainContainer && !mainContainer.classList.contains("tokeness-hide-original")) {
-        mainContainer.classList.add("tokeness-hide-original");
-      }
-    });
-    
-    state.observer.observe(targetNode, { childList: true, subtree: true });
-    log("MutationObserver started");
-  }
-  
-  function handleRouteChange() {
-    const debouncedHandler = debounce(() => {
-      log(`Route changed: ${window.location.pathname}`);
-      if (isHomePage()) {
-        injectWithRetry().then(() => {
-          if (state.isInjected) startObserver();
+    function injectStyles() {
+        try {
+            if (document.getElementById("tokeness-home-style"))
+                return;
+            const styleEl = document.createElement("style");
+            styleEl.id = "tokeness-home-style";
+            styleEl.textContent = TOKENESS_HOME_STYLE;
+            document.head.appendChild(styleEl);
+            log("Styles injected", "success");
+        }
+        catch (err) {
+            log(`Failed to inject styles: ${err.message}`, "error");
+        }
+    }
+    function isHomePage() {
+        const path = window.location.pathname;
+        return path === "/" || path === "/index" || path === "/index.html";
+    }
+    function findMainContainer() {
+        return document.querySelector(".bg-background.text-foreground");
+    }
+    function getHomeWrapperAnchor(mainContainer) {
+        return mainContainer.children.length > 2 ? mainContainer.children[2] : null;
+    }
+    function doInject() {
+        try {
+            const mainContainer = findMainContainer();
+            if (!mainContainer)
+                return false;
+            if (document.getElementById("tokeness-home-wrapper") && mainContainer.classList.contains("tokeness-hide-original")) {
+                state.isInjected = true;
+                return true;
+            }
+            mainContainer.classList.add("tokeness-hide-original");
+            let wrapper = document.getElementById("tokeness-home-wrapper");
+            if (!wrapper) {
+                wrapper = document.createElement("div");
+                wrapper.id = "tokeness-home-wrapper";
+                mainContainer.insertBefore(wrapper, getHomeWrapperAnchor(mainContainer));
+            }
+            wrapper.innerHTML = getTokenessHomeHTML();
+            localizeMultilingualContent(wrapper);
+            state.isInjected = true;
+            log("Content injected", "success");
+            return true;
+        }
+        catch (err) {
+            log(`Inject failed: ${err.message}`, "error");
+            return false;
+        }
+    }
+    async function injectWithRetry() {
+        if (state.isProcessing)
+            return;
+        state.isProcessing = true;
+        state.retryCount = 0;
+        while (state.retryCount < state.maxRetries) {
+            if (doInject())
+                break;
+            state.retryCount++;
+            log(`Retry ${state.retryCount}/${state.maxRetries}...`, "warn");
+            await delay(state.retryDelay);
+        }
+        state.isProcessing = false;
+    }
+    function cleanup() {
+        try {
+            const wrapper = document.getElementById("tokeness-home-wrapper");
+            if (wrapper)
+                wrapper.remove();
+            const mainContainer = findMainContainer();
+            if (mainContainer)
+                mainContainer.classList.remove("tokeness-hide-original");
+            if (state.observer) {
+                state.observer.disconnect();
+                state.observer = null;
+            }
+            state.isInjected = false;
+            log("Cleanup completed", "success");
+        }
+        catch (err) {
+            log(`Cleanup failed: ${err.message}`, "error");
+        }
+    }
+    function startObserver() {
+        if (state.observer)
+            state.observer.disconnect();
+        const targetNode = document.body;
+        if (!targetNode)
+            return;
+        state.observer = new MutationObserver(() => {
+            enhanceRechargePage();
+            enhancePaymentDialog();
+            enhanceReferralPlan();
+            if (!isHomePage() || !state.isInjected)
+                return;
+            const wrapper = document.getElementById("tokeness-home-wrapper");
+            if (!wrapper) {
+                log("Wrapper removed, re-injecting", "warn");
+                doInject();
+                return;
+            }
+            localizeMultilingualContent(document.body);
+            const mainContainer = findMainContainer();
+            if (mainContainer && !mainContainer.classList.contains("tokeness-hide-original")) {
+                mainContainer.classList.add("tokeness-hide-original");
+            }
         });
-      } else {
-        cleanup();
-      }
-    }, 150);
-    debouncedHandler();
-  }
-  
-  function watchRouteChanges() {
-    window.addEventListener("popstate", handleRouteChange);
-    
-    const origPush = history.pushState;
-    const origReplace = history.replaceState;
-    
-    history.pushState = function() {
-      origPush.apply(this, arguments);
-      handleRouteChange();
-    };
-    
-    history.replaceState = function() {
-      origReplace.apply(this, arguments);
-      handleRouteChange();
-    };
-    
-    window.addEventListener("hashchange", handleRouteChange);
-    log("Route watchers initialized");
-  }
-  
-  async function init() {
-    log("Initializing...");
-    injectStyles();
-    if (isHomePage()) {
-      await injectWithRetry();
-      if (state.isInjected) startObserver();
+        state.observer.observe(targetNode, { childList: true, subtree: true });
+        log("MutationObserver started");
     }
-    watchRouteChanges();
-    log("Initialized", "success");
-  }
-  
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+    function getPayableContainer(customAmountInput) {
+        const nextElement = customAmountInput.nextElementSibling;
+        if (nextElement && nextElement.id === "tokeness-recharge-note") {
+            nextElement.remove();
+            return customAmountInput.nextElementSibling;
+        }
+        return nextElement;
+    }
+    function setPayableText(payableContainer, textContent) {
+        const textTarget = payableContainer.lastElementChild || payableContainer;
+        textTarget.classList.add("tokeness-payable-amount-target");
+        if (textTarget.dataset.tokenessPayableText !== textContent) {
+            textTarget.dataset.tokenessPayableText = textContent;
+        }
+        textTarget.style.color = "transparent";
+        textTarget.style.webkitTextFillColor = "transparent";
+        textTarget.style.position = "relative";
+        textTarget.style.display = "inline-flex";
+        textTarget.style.minWidth = `${Math.max(4, textContent.length)}ch`;
+    }
+    function updatePayableDisplay() {
+        const customAmountInput = document.getElementById("topup-amount");
+        if (!customAmountInput)
+            return;
+        if (!(customAmountInput instanceof HTMLInputElement))
+            return;
+        const payableContainer = getPayableContainer(customAmountInput);
+        if (!payableContainer)
+            return;
+        const validPrice = getExchangeRate();
+        const inputValue = Number(customAmountInput.value);
+        const validAmount = Number.isFinite(inputValue) && inputValue > 0 ? inputValue : 0;
+        const total = validAmount * validPrice;
+        const textContent = usesChineseRechargeText(customAmountInput)
+            ? `¥${total.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`
+            : `${total.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} CNY`;
+        setPayableText(payableContainer, textContent);
+    }
+    function findPaymentDialogRow(dialog, labels) {
+        const rows = Array.from(dialog.querySelectorAll("div"));
+        return rows.find((row) => {
+            const label = row.firstElementChild;
+            const labelText = label && label.textContent ? label.textContent.trim() : "";
+            return labels.includes(labelText) && row.children.length >= 2;
+        }) || null;
+    }
+    function getPaymentDialogMethodName(methodRow) {
+        if (!methodRow)
+            return "";
+        const leafTexts = Array.from(methodRow.querySelectorAll("*"))
+            .filter((element) => element.children.length === 0)
+            .map((element) => element.textContent.trim())
+            .filter(Boolean)
+            .filter((text) => text !== "付款方式" && text !== "Payment Method");
+        return leafTexts[leafTexts.length - 1] || methodRow.textContent.replace(/付款方式|Payment Method/g, "").trim();
+    }
+    function enhancePaymentDialog() {
+        const dialogs = Array.from(document.querySelectorAll('[class*="alert-dialog-content"], [role="alertdialog"], [role="dialog"]'));
+        for (const dialog of dialogs) {
+            const dialogText = dialog.textContent || "";
+            if (!dialogText.includes("确认付款") && !dialogText.includes("Confirm Payment"))
+                continue;
+            const payRow = findPaymentDialogRow(dialog, ["您支付", "You Pay"]);
+            if (!payRow)
+                continue;
+            const methodRow = findPaymentDialogRow(dialog, ["付款方式", "Payment Method"]);
+            const methodText = getPaymentDialogMethodName(methodRow);
+            const isEpay = isEpayPaymentMethodName(methodText);
+            payRow.classList.toggle("tokeness-payment-dialog-hidden-row", !isEpay);
+            payRow.classList.toggle("tokeness-payment-dialog-epay-notice-row", isEpay);
+            if (isEpay) {
+                const epayNotice = walletCopy().epayNotice;
+                if (payRow.dataset.tokenessEpayNotice !== epayNotice) {
+                    payRow.dataset.tokenessEpayNotice = epayNotice;
+                }
+            }
+            else if (payRow.dataset.tokenessEpayNotice) {
+                delete payRow.dataset.tokenessEpayNotice;
+            }
+        }
+    }
+    function watchPaymentDialogTriggers() {
+        if (state.paymentDialogWatcherStarted)
+            return;
+        state.paymentDialogWatcherStarted = true;
+        document.addEventListener("click", () => {
+            setTimeout(enhancePaymentDialog, 0);
+            setTimeout(enhancePaymentDialog, 100);
+            setTimeout(enhancePaymentDialog, 300);
+        }, true);
+    }
+    function findTextElement(text) {
+        if (!document.body)
+            return null;
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
+        while (node) {
+            if ((node.nodeValue || "").trim() === text)
+                return node.parentElement;
+            node = walker.nextNode();
+        }
+        return null;
+    }
+    function findAnyTextElement(texts) {
+        for (const text of texts) {
+            const element = findTextElement(text);
+            if (element)
+                return element;
+        }
+        return null;
+    }
+    function includesEveryLabelGroup(textContent, labelGroups) {
+        return labelGroups.every((labels) => labels.some((label) => textContent.includes(label)));
+    }
+    function enhanceReferralPlan() {
+        const title = findAnyTextElement(REFERRAL_TITLES);
+        if (!title)
+            return;
+        const copyText = walletCopy().referralCopy;
+        const infoBlock = title.closest("div") || title.parentElement;
+        const copy = infoBlock && infoBlock.querySelector("p");
+        if (copy) {
+            copy.classList.add("tokeness-referral-copy");
+            if (copy.textContent !== copyText) {
+                copy.textContent = copyText;
+            }
+        }
+        const cardGrid = title.closest("[class*='grid']");
+        if (!cardGrid)
+            return;
+        const statsGrid = Array.from(cardGrid.querySelectorAll("div"))
+            .find((element) => includesEveryLabelGroup(element.textContent || "", REFERRAL_STAT_LABEL_GROUPS));
+        if (!statsGrid)
+            return;
+        statsGrid.classList.add("tokeness-referral-stats");
+        for (const stat of Array.from(statsGrid.children)) {
+            const label = stat.firstElementChild && stat.firstElementChild.textContent.trim();
+            const shouldHide = Boolean(label && REFERRAL_HIDDEN_STAT_LABELS.includes(label));
+            if (stat.classList.contains("tokeness-referral-hidden-stat") !== shouldHide) {
+                stat.classList.toggle("tokeness-referral-hidden-stat", shouldHide);
+            }
+        }
+    }
+    function enhanceRechargePage() {
+        const path = window.location.pathname;
+        const existingNote = document.getElementById("tokeness-recharge-note");
+        if (!path.includes("/wallet") && !path.includes("/topup") && !path.includes("/recharge")) {
+            if (existingNote)
+                existingNote.remove();
+            return;
+        }
+        const customAmountInput = document.getElementById("topup-amount");
+        if (!customAmountInput) {
+            if (existingNote)
+                existingNote.remove();
+            return;
+        }
+        const price = getExchangeRate();
+        if (existingNote)
+            existingNote.remove();
+        const formattedPrice = price.toLocaleString("zh-CN");
+        const textContent = usesChineseRechargeText(customAmountInput)
+            ? `×¥${formattedPrice}=`
+            : `×${formattedPrice} CNY =`;
+        const insertParent = customAmountInput.parentElement;
+        if (!insertParent)
+            return;
+        const payableContainer = getPayableContainer(customAmountInput);
+        if (!payableContainer)
+            return;
+        insertParent.classList.add("tokeness-recharge-row");
+        insertParent.dataset.tokenessRechargeNote = textContent;
+        if (insertParent.classList.contains("grid")) {
+            insertParent.style.gridTemplateColumns = "minmax(0, 1fr) auto minmax(110px, 0.55fr)";
+            insertParent.style.alignItems = "center";
+        }
+        customAmountInput.style.gridColumn = "1";
+        customAmountInput.style.gridRow = "1";
+        payableContainer.style.gridColumn = "3";
+        payableContainer.style.gridRow = "1";
+        if (customAmountInput.dataset.tokenessInputListener !== "true") {
+            customAmountInput.addEventListener("input", updatePayableDisplay);
+            customAmountInput.addEventListener("change", updatePayableDisplay);
+            customAmountInput.dataset.tokenessInputListener = "true";
+        }
+        updatePayableDisplay();
+    }
+    function handleRouteChange() {
+        const debouncedHandler = debounce(() => {
+            log(`Route changed: ${window.location.pathname}`);
+            enhanceRechargePage();
+            enhancePaymentDialog();
+            enhanceReferralPlan();
+            if (isHomePage()) {
+                injectWithRetry().then(() => {
+                    if (state.isInjected)
+                        startObserver();
+                });
+            }
+            else {
+                cleanup();
+                // startObserver is needed on non-home pages as well to detect route changes via history API properly
+                // since we cleared the wrapper, we just need to ensure observer runs enhanceRechargePage
+                startObserver();
+            }
+        }, 150);
+        debouncedHandler();
+    }
+    function watchRouteChanges() {
+        window.addEventListener("popstate", handleRouteChange);
+        const origPush = history.pushState;
+        const origReplace = history.replaceState;
+        history.pushState = function (data, unused, url) {
+            origPush.call(this, data, unused, url);
+            handleRouteChange();
+        };
+        history.replaceState = function (data, unused, url) {
+            origReplace.call(this, data, unused, url);
+            handleRouteChange();
+        };
+        window.addEventListener("hashchange", handleRouteChange);
+        log("Route watchers initialized");
+    }
+    async function init() {
+        log("Initializing...");
+        watchAnnouncementApis();
+        watchNewApiLanguage();
+        watchPaymentDialogTriggers();
+        applyLocalizedHeadContent();
+        watchHeadContent();
+        injectStyles();
+        enhanceRechargePage();
+        enhancePaymentDialog();
+        enhanceReferralPlan();
+        if (isHomePage()) {
+            await injectWithRetry();
+        }
+        // Always start observer so enhanceRechargePage can run on route changes/mutations
+        startObserver();
+        watchRouteChanges();
+        log("Initialized", "success");
+    }
+    watchAnnouncementApis();
+    watchNewApiLanguage();
+    applyLocalizedHeadContent();
+    watchHeadContent();
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    }
+    else {
+        init();
+    }
 })();
