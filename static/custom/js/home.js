@@ -308,39 +308,39 @@
     };
     const headTranslations = {
         zh: {
-            title: "Tokeness - 一站式 AI API 接口中转｜全能 API 中转站，一个接口畅连全网主流大模型|开发",
-            metaTitle: "Tokeness - 一站式 AI API 接口中转",
-            metaDescription: "Tokeness一站式AI接口中转，开发者专属全能API中转站，单接口可连通GPT、Claude、DeepSeek等主流大模型。无使用门槛，单密钥通用全系模型，兼容OpenAI接口可无缝对接各类应用，支持自定义密钥时效与额度，仅做数据中转保护隐私，依托渠道优势价格实惠，模型资源丰富、性价比出众。",
+            title: "Tokeness - 一个入口，所有模型 | AI API",
+            metaTitle: "Tokeness - 一个入口，所有模型 | AI API",
+            metaDescription: "Tokeness 提供一个入口接入所有主流 AI 模型。一个 Key 连通 GPT、Claude、DeepSeek 等模型，兼容 OpenAI 接口，支持额度控制、路由管理、消费审计和隐私中转，开发接入更简单。",
             metaKeywords: "AI API Gateway, API 中转站, LLM API, 全模型AI接口, GPT API, Claude API, OpenAI兼容API, AI接口中转, Tokeness, AI API Hub"
         },
         en: {
-            title: "Tokeness - One AI API Gateway for GPT, Claude, DeepSeek and More",
-            metaTitle: "Tokeness - Unified AI API Gateway",
-            metaDescription: "Tokeness is a unified AI API gateway for developers. Use one OpenAI-compatible endpoint and one key to access GPT, Claude, DeepSeek and other mainstream models with quota control, key expiration, privacy-preserving relay, rich model coverage and cost-effective routing.",
+            title: "Tokeness - One Entry, All Models | AI API",
+            metaTitle: "Tokeness - One Entry, All Models | AI API",
+            metaDescription: "Tokeness gives developers one entry to every major AI model. Use one OpenAI-compatible key for GPT, Claude, DeepSeek and more, with quota control, routing management, usage audit and privacy-preserving relay.",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, AI API proxy, Tokeness, AI API Hub"
         },
         fr: {
-            title: "Tokeness - Passerelle API IA unifiee pour GPT, Claude, DeepSeek et plus",
-            metaTitle: "Tokeness - Passerelle API IA unifiee",
-            metaDescription: "Tokeness fournit une passerelle API IA unifiee pour les developpeurs: un endpoint compatible OpenAI, une seule cle, controle des quotas, relais respectueux de la confidentialite et acces a GPT, Claude, DeepSeek et d'autres modeles.",
+            title: "Tokeness - Une entree, tous les modeles | AI API",
+            metaTitle: "Tokeness - Une entree, tous les modeles | AI API",
+            metaDescription: "Tokeness offre aux developpeurs une entree unique vers tous les grands modeles IA. Une seule cle compatible OpenAI donne acces a GPT, Claude, DeepSeek et plus, avec controle des quotas, routage, audit d'usage et relais respectueux de la confidentialite.",
             metaKeywords: "AI API Gateway, API IA, LLM API, GPT API, Claude API, API compatible OpenAI, Tokeness"
         },
         ru: {
-            title: "Tokeness - Unified AI API Gateway for GPT, Claude, DeepSeek and More",
-            metaTitle: "Tokeness - Unified AI API Gateway",
-            metaDescription: "Tokeness provides one OpenAI-compatible AI API gateway and one key for GPT, Claude, DeepSeek and other mainstream models, with quota control, privacy-preserving relay and cost-effective routing.",
+            title: "Tokeness - Один вход, все модели | AI API",
+            metaTitle: "Tokeness - Один вход, все модели | AI API",
+            metaDescription: "Tokeness дает разработчикам один вход ко всем основным AI-моделям. Один OpenAI-совместимый ключ подключает GPT, Claude, DeepSeek и другие модели с контролем квот, управлением маршрутизацией, аудитом расходов и приватным транзитом данных.",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
         },
         ja: {
-            title: "Tokeness - GPT、Claude、DeepSeek につながる統合 AI API Gateway",
-            metaTitle: "Tokeness - 統合 AI API Gateway",
-            metaDescription: "Tokeness は OpenAI 互換の単一エンドポイントと単一キーで GPT、Claude、DeepSeek など主要モデルへ接続できる AI API Gateway です。クォータ管理、キー期限、プライバシーを守る中継、低コストなルーティングに対応します。",
+            title: "Tokeness - 一つの入口、すべてのモデル | AI API",
+            metaTitle: "Tokeness - 一つの入口、すべてのモデル | AI API",
+            metaDescription: "Tokeness は開発者向けに、主要な AI モデルへ接続する一つの入口を提供します。OpenAI 互換の一つの Key で GPT、Claude、DeepSeek などを利用でき、クォータ管理、ルーティング、利用監査、プライバシーを守る中継に対応します。",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
         },
         vi: {
-            title: "Tokeness - Cong AI API thong nhat cho GPT, Claude, DeepSeek va hon the nua",
-            metaTitle: "Tokeness - Cong AI API thong nhat",
-            metaDescription: "Tokeness cung cap mot cong AI API tuong thich OpenAI cho nha phat trien: mot endpoint, mot key, truy cap GPT, Claude, DeepSeek va cac mo hinh pho bien khac voi quan ly quota, thoi han key, relay bao ve rieng tu va dinh tuyen tiet kiem chi phi.",
+            title: "Tokeness - Mot loi vao, tat ca mo hinh | AI API",
+            metaTitle: "Tokeness - Mot loi vao, tat ca mo hinh | AI API",
+            metaDescription: "Tokeness cho nha phat trien mot loi vao den tat ca mo hinh AI pho bien. Mot key tuong thich OpenAI ket noi GPT, Claude, DeepSeek va nhieu mo hinh khac, kem quan ly quota, dieu phoi tuyen, kiem toan su dung va relay bao ve rieng tu.",
             metaKeywords: "AI API Gateway, LLM API, GPT API, Claude API, OpenAI compatible API, Tokeness"
         }
     };
