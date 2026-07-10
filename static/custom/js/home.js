@@ -503,14 +503,6 @@
         }
         return values;
     }
-    function registerLocalizedStringSource(sourceText) {
-        const values = readTokenessTextValues(sourceText);
-        for (const value of Object.values(values)) {
-            if (typeof value === "string" && value.trim()) {
-                rememberLocalizedStringSource(value.trim(), sourceText);
-            }
-        }
-    }
     function rememberLocalizedStringSource(value, sourceText) {
         if (!localizedStringSources.has(value) && localizedStringSources.size >= MAX_LOCALIZED_STRING_SOURCES) {
             const oldestKey = localizedStringSources.keys().next().value;
@@ -519,15 +511,58 @@
         }
         localizedStringSources.set(value, sourceText);
     }
+    function localizeTokenessTextGroups(text) {
+        const sourceText = String(text);
+        const pattern = /<tokeness-text\b([^>]*)>([\s\S]*?)<\/tokeness-text>/gi;
+        const languages = new Set();
+        let output = "";
+        let cursor = 0;
+        let groupStart = -1;
+        let groupEnd = -1;
+        let foundGroup = false;
+        const flushGroup = () => {
+            if (groupStart < 0)
+                return;
+            const groupSource = sourceText.slice(groupStart, groupEnd);
+            const localized = pickLocalizedValue(readTokenessTextValues(groupSource));
+            output += sourceText.slice(cursor, groupStart);
+            output += typeof localized === "string" ? localized : groupSource;
+            cursor = groupEnd;
+            groupStart = -1;
+            groupEnd = -1;
+            languages.clear();
+        };
+        let match = pattern.exec(sourceText);
+        while (match) {
+            const langMatch = match[1].match(/\blang\s*=\s*["']?([^"'\s>]+)["']?/i);
+            const language = langMatch ? readSupportedLanguage(langMatch[1]) : null;
+            if (!language) {
+                flushGroup();
+                match = pattern.exec(sourceText);
+                continue;
+            }
+            const gap = groupEnd >= 0 ? sourceText.slice(groupEnd, match.index) : "";
+            if (groupStart >= 0 && (gap.trim() || languages.has(language)))
+                flushGroup();
+            if (groupStart < 0)
+                groupStart = match.index;
+            groupEnd = pattern.lastIndex;
+            languages.add(language);
+            foundGroup = true;
+            match = pattern.exec(sourceText);
+        }
+        flushGroup();
+        output += sourceText.slice(cursor);
+        return foundGroup ? output : null;
+    }
     function parseLocalizedXmlText(text) {
         if (!text)
             return null;
-        const values = readTokenessTextValues(text);
-        if (Object.keys(values).length > 0) {
-            registerLocalizedStringSource(text);
-            return pickLocalizedValue(values);
-        }
-        return null;
+        const localized = localizeTokenessTextGroups(text);
+        if (typeof localized !== "string")
+            return null;
+        rememberLocalizedStringSource(localized.trim(), text);
+        return localized;
     }
     function parseLocalizedText(text) {
         const trimmed = text.trim();
@@ -580,7 +615,7 @@
         return nextValue;
     }
     function isLocalizableApiUrl(url) {
-        if (!url)
+        if (!url || isSystemSettingsPage())
             return false;
         try {
             const parsed = new URL(url, window.location.origin);
@@ -589,6 +624,10 @@
         catch (err) {
             return String(url).includes("/api/");
         }
+    }
+    function isSystemSettingsPage() {
+        const path = window.location.pathname;
+        return path === "/system-settings" || path.startsWith("/system-settings/");
     }
     function localizeApiPayload(url, payload) {
         return localizeTree(payload);
@@ -763,8 +802,14 @@
             return originalOpen.call(this, method, url, async, username, password);
         };
     }
+    const LOCALIZATION_EDITOR_SELECTOR = 'input, textarea, select, option, [contenteditable]:not([contenteditable="false"]), [role="textbox"]';
+    function isLocalizationEditor(element) {
+        return Boolean(element && element.closest(LOCALIZATION_EDITOR_SELECTOR));
+    }
     function localizeMultilingualContent(root) {
-        if (!root)
+        if (!root || isSystemSettingsPage())
+            return;
+        if (root instanceof Element && isLocalizationEditor(root))
             return;
         localizeTokenessTextElements(root);
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -775,6 +820,8 @@
             node = walker.nextNode();
         }
         for (const textNode of nodes) {
+            if (isLocalizationEditor(textNode.parentElement))
+                continue;
             const nodeText = textNode.nodeValue || "";
             const sourceText = localizedTextSources.get(textNode) || localizedStringSources.get(nodeText.trim()) || nodeText;
             const localized = parseLocalizedText(sourceText);
@@ -789,26 +836,53 @@
             return;
         const parents = new Set();
         for (const element of Array.from(root.querySelectorAll("tokeness-text"))) {
-            if (element.parentElement)
+            if (element.parentElement && !isLocalizationEditor(element))
                 parents.add(element.parentElement);
         }
         for (const parent of parents) {
-            const localizedElements = Array.from(parent.children).filter((element) => element.tagName.toLowerCase() === "tokeness-text");
-            if (localizedElements.length === 0)
-                continue;
-            const values = {};
-            for (const element of localizedElements) {
-                const lang = normalizeLanguage(element.getAttribute("lang"));
-                values[lang] = element.textContent || "";
+            const groups = [];
+            let group = [];
+            const languages = new Set();
+            const flushGroup = () => {
+                if (group.length > 0)
+                    groups.push(group);
+                group = [];
+                languages.clear();
+            };
+            for (const child of Array.from(parent.childNodes)) {
+                if (child instanceof Element && child.tagName.toLowerCase() === "tokeness-text") {
+                    const language = readSupportedLanguage(child.getAttribute("lang"));
+                    if (!language) {
+                        flushGroup();
+                        continue;
+                    }
+                    if (languages.has(language))
+                        flushGroup();
+                    group.push(child);
+                    languages.add(language);
+                    continue;
+                }
+                if (child.nodeType !== Node.TEXT_NODE || (child.textContent || "").trim())
+                    flushGroup();
             }
-            const localized = pickLocalizedValue(values);
-            if (typeof localized !== "string")
-                continue;
-            const textNode = document.createTextNode(localized);
-            parent.insertBefore(textNode, localizedElements[0]);
-            for (const element of localizedElements)
-                element.remove();
-            localizedTextSources.set(textNode, localizedElements.map((element) => element.outerHTML).join(""));
+            flushGroup();
+            for (const localizedElements of groups) {
+                const values = {};
+                for (const element of localizedElements) {
+                    const language = readSupportedLanguage(element.getAttribute("lang"));
+                    if (language)
+                        values[language] = element.textContent || "";
+                }
+                const localized = pickLocalizedValue(values);
+                if (typeof localized !== "string")
+                    continue;
+                const sourceText = localizedElements.map((element) => element.outerHTML).join("");
+                const textNode = document.createTextNode(localized);
+                parent.insertBefore(textNode, localizedElements[0]);
+                for (const element of localizedElements)
+                    element.remove();
+                localizedTextSources.set(textNode, sourceText);
+            }
         }
     }
     function watchNewApiLanguage() {
