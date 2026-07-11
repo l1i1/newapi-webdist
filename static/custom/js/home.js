@@ -459,7 +459,6 @@
         const wrapper = document.getElementById("tokeness-home-wrapper");
         if (wrapper) {
             wrapper.innerHTML = getTokenessHomeHTML();
-            renderNotice();
         }
         localizeMultilingualContent(document.body);
         enhanceRechargePage();
@@ -633,8 +632,9 @@
     function localizeApiPayload(url, payload) {
         return localizeTree(payload);
     }
-    function localizeApiResponseText(url, text) {
-        if (!isLocalizableApiUrl(url) || !text)
+    function localizeApiResponseText(url, text, eligible) {
+        const shouldLocalize = eligible === undefined ? isLocalizableApiUrl(url) : eligible;
+        if (!shouldLocalize || !text)
             return text;
         try {
             return JSON.stringify(localizeApiPayload(url, JSON.parse(text)));
@@ -661,7 +661,7 @@
         }
     }
     function applyLocalizedXhrResponse(xhr) {
-        if (!isLocalizableApiUrl(xhr.__tokenessApiUrl) || xhr.__tokenessApiLocalized)
+        if (!xhr.__tokenessApiLocalizable || xhr.__tokenessApiLocalized)
             return;
         if (xhr.responseType === "json") {
             if (xhr.__tokenessApiUrl.includes("/api/status") && xhr.response && xhr.response.data) {
@@ -696,7 +696,7 @@
             }
             catch (e) { }
         }
-        const localizedText = localizeApiResponseText(xhr.__tokenessApiUrl, text);
+        const localizedText = localizeApiResponseText(xhr.__tokenessApiUrl, text, xhr.__tokenessApiLocalizable);
         if (!localizedText || localizedText === text)
             return;
         Object.defineProperty(xhr, "responseText", { configurable: true, get: () => localizedText });
@@ -751,8 +751,9 @@
         if (typeof originalFetch === "function") {
             window.fetch = function (input, init) {
                 const requestUrl = getFetchRequestUrl(input);
+                const eligible = isLocalizableApiUrl(requestUrl);
                 return originalFetch.call(this, input, init).then((response) => {
-                    if (!isLocalizableApiUrl(requestUrl))
+                    if (!eligible)
                         return response;
                     return response.clone().text().then((text) => {
                         if (requestUrl.includes("/api/status")) {
@@ -772,7 +773,7 @@
                             }
                             catch (e) { }
                         }
-                        const localizedText = localizeApiResponseText(requestUrl, text);
+                        const localizedText = localizeApiResponseText(requestUrl, text, eligible);
                         if (localizedText === text)
                             return response;
                         const headers = new Headers(response.headers);
@@ -789,6 +790,7 @@
         const originalOpen = XMLHttpRequest.prototype.open;
         XMLHttpRequest.prototype.open = function (method, url, async = true, username, password) {
             this.__tokenessApiUrl = String(url);
+            this.__tokenessApiLocalizable = isLocalizableApiUrl(String(url));
             resetLocalizedXhrResponse(this);
             if (!this.__tokenessApiLocalizationAttached) {
                 this.__tokenessApiLocalizationAttached = true;
@@ -824,10 +826,13 @@
             if (isLocalizationEditor(textNode.parentElement))
                 continue;
             const nodeText = textNode.nodeValue || "";
-            const sourceText = localizedTextSources.get(textNode) || localizedStringSources.get(nodeText.trim()) || nodeText;
+            const cached = localizedTextSources.get(textNode);
+            const sourceText = cached?.renderedText === nodeText
+                ? cached.sourceText
+                : (localizedStringSources.get(nodeText.trim()) || nodeText);
             const localized = parseLocalizedText(sourceText);
             if (typeof localized === "string" && localized.trim()) {
-                localizedTextSources.set(textNode, sourceText);
+                localizedTextSources.set(textNode, { sourceText, renderedText: localized });
                 textNode.nodeValue = localized;
             }
         }
@@ -882,7 +887,7 @@
                 parent.insertBefore(textNode, localizedElements[0]);
                 for (const element of localizedElements)
                     element.remove();
-                localizedTextSources.set(textNode, sourceText);
+                localizedTextSources.set(textNode, { sourceText, renderedText: localized });
             }
         }
     }
@@ -923,29 +928,6 @@
 /* Hide original main content */
 .tokeness-hide-original > *:not(#tokeness-home-wrapper):nth-child(n+3):nth-last-child(n+2) {
   display: none !important;
-}
-
-/* Tokeness notice / announcement section */
-.tokeness-notice {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 16px 20px;
-  line-height: 1.6;
-  font-size: 14px;
-  color: var(--tokeness-foreground, var(--foreground, #151515));
-}
-.tokeness-notice h3, .tokeness-notice h4 {
-  margin: 12px 0 6px;
-  font-size: 15px;
-  font-weight: 700;
-}
-.tokeness-notice p { margin: 6px 0; }
-.tokeness-notice a { color: var(--tokeness-primary, #722ed1); }
-.tokeness-notice code {
-  background: rgba(114, 46, 209, 0.08);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 13px;
 }
 
 .tokeness-recharge-note {
@@ -1314,7 +1296,6 @@
       <div class="tokeness-card" data-index="A03"><strong>${t('cardA03Title')}</strong><span>${t('cardA03Desc')}</span></div>
       <div class="tokeness-card" data-index="A04"><strong>${t('cardA04Title')}</strong><span>${t('cardA04Desc')}</span></div>
     </section>
-    <section class="tokeness-notice" id="tokeness-notice-section"></section>
     <section class="tokeness-band">
       <div class="tokeness-band-text">
         <div class="tokeness-band-label">${t('bandLabel')}</div>
@@ -1419,35 +1400,6 @@
     function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-    function mdToHtml(md) {
-        return String(md)
-            .replace(/^### (.*$)/gm, '<h4>$1</h4>')
-            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-            .replace(/`([^`]+)`/g, '<code>$1</code>')
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-            .replace(/^· (.*$)/gm, '&bull; $1<br>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n/g, '<br>');
-    }
-    function renderNotice() {
-        const section = document.getElementById("tokeness-notice-section");
-        if (!section)
-            return;
-        try {
-            const noticeUrl = window.location.origin + "/api/notice";
-            fetch(noticeUrl).then((r) => r.json()).then((json) => {
-                let html = json && json.data ? json.data : "";
-                if (html) {
-                    html = mdToHtml(html);
-                    section.innerHTML = "<p>" + html + "</p>";
-                }
-                else {
-                    section.innerHTML = "";
-                }
-            }).catch(() => { });
-        }
-        catch (e) { }
-    }
     function injectStyles() {
         try {
             if (document.getElementById("tokeness-home-style"))
@@ -1491,7 +1443,6 @@
             }
             wrapper.innerHTML = getTokenessHomeHTML();
             localizeMultilingualContent(wrapper);
-            renderNotice();
             state.isInjected = true;
             log("Content injected", "success");
             return true;
