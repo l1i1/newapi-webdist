@@ -124,7 +124,7 @@ jobs:
           IMAGE_AVAILABLE: ${{ steps.docker_image.outputs.available }}
           FORCE: ${{ github.event.inputs.force }}
           SYNC_CUSTOM: ${{ github.event.inputs.sync_custom }}
-          IS_CUSTOM_PUSH: ${{ github.event_name == 'push' && (contains(join(github.event.commits.*.modified, ','), 'static/custom/') || contains(join(github.event.commits.*.added, ','), 'static/custom/') || contains(join(github.event.commits.*.removed, ','), 'static/custom/')) }}
+          IS_CUSTOM_PUSH: ${{ github.event_name == 'push' }}
         run: |
           TARGET="${UPSTREAM_TAG}+default"
 
