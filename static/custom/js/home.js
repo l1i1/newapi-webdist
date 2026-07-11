@@ -459,6 +459,7 @@
         const wrapper = document.getElementById("tokeness-home-wrapper");
         if (wrapper) {
             wrapper.innerHTML = getTokenessHomeHTML();
+            renderNotice();
         }
         localizeMultilingualContent(document.body);
         enhanceRechargePage();
@@ -924,6 +925,29 @@
   display: none !important;
 }
 
+/* Tokeness notice / announcement section */
+.tokeness-notice {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px 20px;
+  line-height: 1.6;
+  font-size: 14px;
+  color: var(--tokeness-foreground, var(--foreground, #151515));
+}
+.tokeness-notice h3, .tokeness-notice h4 {
+  margin: 12px 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.tokeness-notice p { margin: 6px 0; }
+.tokeness-notice a { color: var(--tokeness-primary, #722ed1); }
+.tokeness-notice code {
+  background: rgba(114, 46, 209, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
 .tokeness-recharge-note {
   font-size: 13px;
   font-weight: 600;
@@ -1290,6 +1314,7 @@
       <div class="tokeness-card" data-index="A03"><strong>${t('cardA03Title')}</strong><span>${t('cardA03Desc')}</span></div>
       <div class="tokeness-card" data-index="A04"><strong>${t('cardA04Title')}</strong><span>${t('cardA04Desc')}</span></div>
     </section>
+    <section class="tokeness-notice" id="tokeness-notice-section"></section>
     <section class="tokeness-band">
       <div class="tokeness-band-text">
         <div class="tokeness-band-label">${t('bandLabel')}</div>
@@ -1394,6 +1419,35 @@
     function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+    function mdToHtml(md) {
+        return String(md)
+            .replace(/^### (.*$)/gm, '<h4>$1</h4>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+            .replace(/^· (.*$)/gm, '&bull; $1<br>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+    }
+    function renderNotice() {
+        const section = document.getElementById("tokeness-notice-section");
+        if (!section)
+            return;
+        try {
+            const noticeUrl = window.location.origin + "/api/notice";
+            fetch(noticeUrl).then((r) => r.json()).then((json) => {
+                let html = json && json.data ? json.data : "";
+                if (html) {
+                    html = mdToHtml(html);
+                    section.innerHTML = "<p>" + html + "</p>";
+                }
+                else {
+                    section.innerHTML = "";
+                }
+            }).catch(() => { });
+        }
+        catch (e) { }
+    }
     function injectStyles() {
         try {
             if (document.getElementById("tokeness-home-style"))
@@ -1437,6 +1491,7 @@
             }
             wrapper.innerHTML = getTokenessHomeHTML();
             localizeMultilingualContent(wrapper);
+            renderNotice();
             state.isInjected = true;
             log("Content injected", "success");
             return true;
