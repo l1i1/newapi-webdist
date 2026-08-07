@@ -1,10 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.23-tokeness-geo-compliance.1",
+    "path": "releases/v1.0.0-rc.23-tokeness-geo-compliance.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.23-tokeness-webdist.2",
     "path": "releases/v1.0.0-rc.23-tokeness-webdist.2"
   },
-  "previous": null,
-  "source_commit": "8809952ef6e44ca6b8562057135bb7f69fc1115a",
-  "generated_at": "2026-08-07T05:50:53Z"
+  "source_commit": "dfe3808b6653505495af924530ff68aedbf792fa",
+  "generated_at": "2026-08-07T09:49:09Z"
 }
