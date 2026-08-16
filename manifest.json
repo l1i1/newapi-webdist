@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.24-tokeness-release-safety.1",
+    "path": "releases/v1.0.0-rc.24-tokeness-release-safety.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.23-tokeness-codex-overload.2",
     "path": "releases/v1.0.0-rc.23-tokeness-codex-overload.2"
   },
-  "previous": {
-    "version": "v1.0.0-rc.23-tokeness-geo-compliance.1",
-    "path": "releases/v1.0.0-rc.23-tokeness-geo-compliance.1"
-  },
-  "source_commit": "ec0c99ec3fa8652182cbe7b56a0a9743cdab8dc4",
-  "generated_at": "2026-08-07T12:45:48Z"
+  "source_commit": "8e0aa2a186bd40bd070babb746433b687f0e82b4",
+  "generated_at": "2026-08-16T20:41:29Z"
 }
