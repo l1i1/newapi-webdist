@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.24-tokeness-pancake-routing.1",
+    "path": "releases/v1.0.0-rc.24-tokeness-pancake-routing.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.24-tokeness-pancake-wallet.1",
     "path": "releases/v1.0.0-rc.24-tokeness-pancake-wallet.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.24-tokeness-payment-recovery.1",
-    "path": "releases/v1.0.0-rc.24-tokeness-payment-recovery.1"
-  },
-  "source_commit": "e8458f4bfc859cf891878a0d40e144e47555542c",
-  "generated_at": "2026-08-17T06:41:11Z"
+  "source_commit": "04ac5e45405d25422f2594c512d0ae45b7356ef4",
+  "generated_at": "2026-08-17T09:12:09Z"
 }
