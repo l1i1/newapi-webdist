@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.24-tokeness-payment-recovery.1",
+    "path": "releases/v1.0.0-rc.24-tokeness-payment-recovery.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.24-tokeness-release-safety.1",
     "path": "releases/v1.0.0-rc.24-tokeness-release-safety.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.23-tokeness-codex-overload.2",
-    "path": "releases/v1.0.0-rc.23-tokeness-codex-overload.2"
-  },
-  "source_commit": "8e0aa2a186bd40bd070babb746433b687f0e82b4",
-  "generated_at": "2026-08-16T20:41:29Z"
+  "source_commit": "b667ba2cb317964a1083d8d75bae11ab07b5c076",
+  "generated_at": "2026-08-17T01:18:26Z"
 }
