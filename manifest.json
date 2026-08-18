@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.24-tokeness-observability-hardening.1",
+    "path": "releases/v1.0.0-rc.24-tokeness-observability-hardening.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.24-tokeness-multikey-proxy.1",
     "path": "releases/v1.0.0-rc.24-tokeness-multikey-proxy.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.24-tokeness-console-ux.1",
-    "path": "releases/v1.0.0-rc.24-tokeness-console-ux.1"
-  },
-  "source_commit": "f47da8e601a2418feee0e3d5f17dcc22300aa7d4",
-  "generated_at": "2026-08-18T09:51:14Z"
+  "source_commit": "3972e6ea166b485a9a8fcdfdd9c3cfbb65268237",
+  "generated_at": "2026-08-18T11:28:04Z"
 }
