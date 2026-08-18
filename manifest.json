@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.24-tokeness-github-email.1",
+    "path": "releases/v1.0.0-rc.24-tokeness-github-email.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.24-tokeness-observability-hardening.1",
     "path": "releases/v1.0.0-rc.24-tokeness-observability-hardening.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.24-tokeness-multikey-proxy.1",
-    "path": "releases/v1.0.0-rc.24-tokeness-multikey-proxy.1"
-  },
-  "source_commit": "3972e6ea166b485a9a8fcdfdd9c3cfbb65268237",
-  "generated_at": "2026-08-18T11:28:04Z"
+  "source_commit": "d24b03ed02757c96615f8efee85a80916c9395e1",
+  "generated_at": "2026-08-18T12:45:55Z"
 }
