@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.24-tokeness-wallet-preconsume.1",
+    "path": "releases/v1.0.0-rc.24-tokeness-wallet-preconsume.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.24-tokeness-email-i18n.1",
     "path": "releases/v1.0.0-rc.24-tokeness-email-i18n.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.24-tokeness-github-email.1",
-    "path": "releases/v1.0.0-rc.24-tokeness-github-email.1"
-  },
-  "source_commit": "29a8d69ba1452e7fc339424888e3fb2f0c3303c3",
-  "generated_at": "2026-08-18T17:41:21Z"
+  "source_commit": "444c3309ca6f5a6e1172443693e67dbc0901fa19",
+  "generated_at": "2026-08-19T09:47:47Z"
 }
