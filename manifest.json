@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-moderation.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-moderation.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-production.1",
     "path": "releases/v1.0.0-rc.25-tokeness-production.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.24-tokeness-wallet-preconsume.1",
-    "path": "releases/v1.0.0-rc.24-tokeness-wallet-preconsume.1"
-  },
-  "source_commit": "5c5aa45d76c311da3bfecb6c7d4b86c8e0837724",
-  "generated_at": "2026-08-19T13:48:47Z"
+  "source_commit": "23a2fec86facd375d6cc0fa2480a26dbbe5c9e20",
+  "generated_at": "2026-08-20T14:28:34Z"
 }
