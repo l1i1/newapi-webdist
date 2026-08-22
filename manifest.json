@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-ollama-cache.3",
+    "path": "releases/v1.0.0-rc.25-tokeness-ollama-cache.3"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-ollama-cache.1",
     "path": "releases/v1.0.0-rc.25-tokeness-ollama-cache.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-cyber-multikey.1",
-    "path": "releases/v1.0.0-rc.25-tokeness-cyber-multikey.1"
-  },
-  "source_commit": "b96c958bd5635ff6e9e31dc6cf8cf0cd96b88b13",
-  "generated_at": "2026-08-22T14:07:01Z"
+  "source_commit": "c7acc0cf68357fcf0b32aa7d5e2532de782911f5",
+  "generated_at": "2026-08-22T16:13:01Z"
 }
