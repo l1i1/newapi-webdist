@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-pricing-grid.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-pricing-grid.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-moderation.1",
     "path": "releases/v1.0.0-rc.25-tokeness-moderation.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-production.1",
-    "path": "releases/v1.0.0-rc.25-tokeness-production.1"
-  },
-  "source_commit": "23a2fec86facd375d6cc0fa2480a26dbbe5c9e20",
-  "generated_at": "2026-08-20T14:28:34Z"
+  "source_commit": "f006a2328490343cc03f4bd848efc9ead8e69c9b",
+  "generated_at": "2026-08-22T07:14:22Z"
 }
