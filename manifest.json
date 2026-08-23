@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-ollama-hardening.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-ollama-hardening.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-ollama-cache.5",
     "path": "releases/v1.0.0-rc.25-tokeness-ollama-cache.5"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-quota-warning.1",
-    "path": "releases/v1.0.0-rc.25-tokeness-quota-warning.1"
-  },
-  "source_commit": "e23f55b992817931c9e6f2aebfcbf3054d1cf7df",
-  "generated_at": "2026-08-23T10:54:42Z"
+  "source_commit": "b4ef61d19027c6570e63e8d2ed69c977d01aacc9",
+  "generated_at": "2026-08-23T16:08:29Z"
 }
