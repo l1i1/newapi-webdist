@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-relay-failover.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-relay-failover.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-ollama-hardening.1",
     "path": "releases/v1.0.0-rc.25-tokeness-ollama-hardening.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-ollama-cache.5",
-    "path": "releases/v1.0.0-rc.25-tokeness-ollama-cache.5"
-  },
-  "source_commit": "b4ef61d19027c6570e63e8d2ed69c977d01aacc9",
-  "generated_at": "2026-08-23T16:08:29Z"
+  "source_commit": "79ecf12ea86192cc68fd226ff6b358e594ae96ea",
+  "generated_at": "2026-08-24T11:53:33Z"
 }
