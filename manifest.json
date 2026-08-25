@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-multikey-401.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-multikey-401.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-deepseek-v4.5",
     "path": "releases/v1.0.0-rc.25-tokeness-deepseek-v4.5"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-deepseek-v4.3",
-    "path": "releases/v1.0.0-rc.25-tokeness-deepseek-v4.3"
-  },
-  "source_commit": "88609fbe262a3ddb53d6076fd0009e745fd37653",
-  "generated_at": "2026-08-25T11:10:15Z"
+  "source_commit": "2a8016700754013cf2062082940f5bd4cc79f9e9",
+  "generated_at": "2026-08-25T12:24:53Z"
 }
