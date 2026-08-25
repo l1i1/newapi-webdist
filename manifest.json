@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-deepseek-v4.3",
+    "path": "releases/v1.0.0-rc.25-tokeness-deepseek-v4.3"
+  },
+  "previous": {
     "version": "v1.0.0-rc.26-tokeness-feature-probe.1",
     "path": "releases/v1.0.0-rc.26-tokeness-feature-probe.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-relay-failover.1",
-    "path": "releases/v1.0.0-rc.25-tokeness-relay-failover.1"
-  },
-  "source_commit": "29561968f53d335806f0f19d20d0c378809728f0",
-  "generated_at": "2026-08-24T19:57:26Z"
+  "source_commit": "1a1daf46994f322caeb20b8d056b481bad6c16f8",
+  "generated_at": "2026-08-25T10:12:41Z"
 }
