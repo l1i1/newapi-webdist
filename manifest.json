@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-deepseek-v4.7",
+    "path": "releases/v1.0.0-rc.25-tokeness-deepseek-v4.7"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-stream-eof.2",
     "path": "releases/v1.0.0-rc.25-tokeness-stream-eof.2"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-deepseek-v4.4",
-    "path": "releases/v1.0.0-rc.25-tokeness-deepseek-v4.4"
-  },
-  "source_commit": "fdbbbd6503f5475e4e1d74585ae719d2688fd7e6",
-  "generated_at": "2026-08-26T08:47:59Z"
+  "source_commit": "afc38b6ec0dec901c8ac0a8c845f3ed5283a036c",
+  "generated_at": "2026-08-26T11:31:24Z"
 }
