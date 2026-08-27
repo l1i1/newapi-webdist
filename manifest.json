@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-temp-bounds.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-temp-bounds.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-channel-test.1",
     "path": "releases/v1.0.0-rc.25-tokeness-channel-test.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-deepseek-v4.8.2",
-    "path": "releases/v1.0.0-rc.25-tokeness-deepseek-v4.8.2"
-  },
-  "source_commit": "ec0f73a9ec06a6f3a49b3b5ae1d7208756dc78b6",
-  "generated_at": "2026-08-26T19:06:26Z"
+  "source_commit": "bd52fac788b1ff78877e0d77d519c2d9b07cc5ed",
+  "generated_at": "2026-08-27T02:32:12Z"
 }
