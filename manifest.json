@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.26-tokeness-official-fit.1",
+    "path": "releases/v1.0.0-rc.26-tokeness-official-fit.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.25-tokeness-json-object.1",
     "path": "releases/v1.0.0-rc.25-tokeness-json-object.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.25-tokeness-temp-bounds.1",
-    "path": "releases/v1.0.0-rc.25-tokeness-temp-bounds.1"
-  },
-  "source_commit": "d9dd6a8ad8791114849e46512a495e7bf840dcb3",
-  "generated_at": "2026-08-27T06:36:46Z"
+  "source_commit": "be7fca9d5941e9721b2efe4a09d52adb44f74594",
+  "generated_at": "2026-08-27T12:28:57Z"
 }
