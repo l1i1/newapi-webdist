@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.36-tokeness-mapped-stream-error.1",
+    "path": "releases/v1.0.0-rc.36-tokeness-mapped-stream-error.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.35-tokeness-official-fit.1",
     "path": "releases/v1.0.0-rc.35-tokeness-official-fit.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.34-tokeness-official-fit.1",
-    "path": "releases/v1.0.0-rc.34-tokeness-official-fit.1"
-  },
-  "source_commit": "31105083844a69a6aae3565fd6434f02f1e1ee56",
-  "generated_at": "2026-08-27T19:53:05Z"
+  "source_commit": "7fae60a4c35f1893c507c22f9ec999b86158477d",
+  "generated_at": "2026-08-29T05:52:07Z"
 }
