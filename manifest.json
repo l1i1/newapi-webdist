@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.25-tokeness-wallet-preconsume.1",
+    "path": "releases/v1.0.0-rc.25-tokeness-wallet-preconsume.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.36-tokeness-mapped-stream-error.1",
     "path": "releases/v1.0.0-rc.36-tokeness-mapped-stream-error.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.35-tokeness-official-fit.1",
-    "path": "releases/v1.0.0-rc.35-tokeness-official-fit.1"
-  },
-  "source_commit": "7fae60a4c35f1893c507c22f9ec999b86158477d",
-  "generated_at": "2026-08-29T05:52:07Z"
+  "source_commit": "1ff87124b3fb73a041ca1baf85149858e1e86963",
+  "generated_at": "2026-08-31T03:36:04Z"
 }
