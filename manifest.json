@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.40-tokeness-ds-fit-passback.1",
+    "path": "releases/v1.0.0-rc.40-tokeness-ds-fit-passback.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.39-tokeness-ds-fit-errors.1",
     "path": "releases/v1.0.0-rc.39-tokeness-ds-fit-errors.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.38-tokeness-ds-tool-chain.1",
-    "path": "releases/v1.0.0-rc.38-tokeness-ds-tool-chain.1"
-  },
-  "source_commit": "cfac269993b703e1871554ce0738b207f6044e0f",
-  "generated_at": "2026-09-01T08:48:42Z"
+  "source_commit": "977f7ac84479c709e634ef27fb605fed74ddb09a",
+  "generated_at": "2026-09-01T15:26:56Z"
 }
