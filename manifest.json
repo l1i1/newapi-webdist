@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.41-tokeness-ds-audit-r6.1",
+    "path": "releases/v1.0.0-rc.41-tokeness-ds-audit-r6.1"
+  },
+  "previous": {
     "version": "v1.0.0-rc.40-tokeness-ds-fit-passback.1",
     "path": "releases/v1.0.0-rc.40-tokeness-ds-fit-passback.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.39-tokeness-ds-fit-errors.1",
-    "path": "releases/v1.0.0-rc.39-tokeness-ds-fit-errors.1"
-  },
-  "source_commit": "977f7ac84479c709e634ef27fb605fed74ddb09a",
-  "generated_at": "2026-09-01T15:26:56Z"
+  "source_commit": "f3902846609cffed8de4c04d389ce74c125a6a25",
+  "generated_at": "2026-09-01T17:26:43Z"
 }
