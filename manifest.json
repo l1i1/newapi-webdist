@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.33-tokeness-mainland.2",
+    "path": "releases/v1.0.0-rc.33-tokeness-mainland.2"
+  },
+  "previous": {
     "version": "v1.0.0-rc.42-tokeness-ds-thinking.1",
     "path": "releases/v1.0.0-rc.42-tokeness-ds-thinking.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.41-tokeness-ds-audit-r6.1",
-    "path": "releases/v1.0.0-rc.41-tokeness-ds-audit-r6.1"
-  },
-  "source_commit": "956b1769f797cf9fe45ded3dc6db0273ed64b2cd",
-  "generated_at": "2026-09-01T18:29:03Z"
+  "source_commit": "64123050184abf6df89e2d2eaf404aa2d3c62fba",
+  "generated_at": "2026-09-05T15:51:16Z"
 }
