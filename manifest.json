@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.45-tokeness-intl.2",
+    "path": "releases/v1.0.0-rc.45-tokeness-intl.2"
+  },
+  "previous": {
     "version": "v1.0.0-rc.44-tokeness-multikey-test.1",
     "path": "releases/v1.0.0-rc.44-tokeness-multikey-test.1"
   },
-  "previous": {
-    "version": "v1.0.0-rc.43-tokeness-official-fit-hybrid.5",
-    "path": "releases/v1.0.0-rc.43-tokeness-official-fit-hybrid.5"
-  },
-  "source_commit": "4879e9e9b597eec9e93a5343907b379f6c111641",
-  "generated_at": "2026-09-06T19:04:55Z"
+  "source_commit": "4f09952fbeb2e2f8019e1034a9f9980d2523976c",
+  "generated_at": "2026-09-08T16:10:11Z"
 }
