@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "current": {
+    "version": "v1.0.0-rc.40-tokeness-intl.13",
+    "path": "releases/v1.0.0-rc.40-tokeness-intl.13"
+  },
+  "previous": {
     "version": "v1.0.0-rc.40-tokeness-intl.12",
     "path": "releases/v1.0.0-rc.40-tokeness-intl.12"
   },
-  "previous": {
-    "version": "v1.0.0-rc.40-tokeness-intl.11",
-    "path": "releases/v1.0.0-rc.40-tokeness-intl.11"
-  },
-  "source_commit": "f92f14b61ba8cfcc8049fb28b079452984e057c4",
-  "generated_at": "2026-10-04T08:12:17Z"
+  "source_commit": "697df846ed22c6834700cb1fc73e2fec61fb41d1",
+  "generated_at": "2026-10-05T11:42:32Z"
 }
